@@ -41,6 +41,7 @@ def calculate_back_angle(shoulder, hip):
     """
     Calcula o ângulo de inclinação do tronco em relação à vertical.
     0° = totalmente ereto, 90° = totalmente inclinado para frente.
+    Usa coordenadas de imagem onde Y cresce para baixo.
     """
     shoulder = np.array(shoulder)
     hip = np.array(hip)
@@ -48,10 +49,10 @@ def calculate_back_angle(shoulder, hip):
     # Vetor do tronco (quadril -> ombro)
     trunk = shoulder - hip
 
-    # Vetor vertical (apontando para cima, y negativo em coordenadas de imagem)
+    # Vetor vertical (apontando para cima em coordenadas de imagem, Y cresce para baixo)
     vertical = np.array([0, -1])
 
-    cosine_angle = np.dot(trunk, vertical) / (np.linalg.norm(trunk) * np.linalg.norm(vertical))
+    cosine_angle = np.dot(trunk, vertical) / (np.linalg.norm(trunk) * np.linalg.norm(vertical) + 1e-6)
     cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
     angle = np.degrees(np.arccos(cosine_angle))
     return angle
@@ -229,7 +230,6 @@ def get_squat_bottoms_multiple_reps(
         backs = back_angles[filtered_idxs]
 
         features = {
-            "count": int(len(filtered_idxs)),
             "knee_min": round(float(np.min(kneeps)), 1),
             "knee_avg": round(float(np.mean(kneeps)), 1),
             "knee_max": round(float(np.max(kneeps)), 1),
@@ -242,7 +242,6 @@ def get_squat_bottoms_multiple_reps(
         }
     else:
         features = {
-            "count": 0,
             "knee_min": None,
             "knee_avg": None,
             "knee_max": None,
