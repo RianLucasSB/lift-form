@@ -1,4 +1,4 @@
-package com.rianlucassb.liftform.core.entities;
+package com.rianlucassb.liftform.core.domain.model;
 
 import java.time.Instant;
 
