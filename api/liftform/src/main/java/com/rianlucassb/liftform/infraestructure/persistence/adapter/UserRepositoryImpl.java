@@ -30,4 +30,9 @@ public class UserRepositoryImpl implements UserRepository {
         return jpaRepository.findByUsernameIgnoreCase(username)
                 .map(mapper::toDomain);
     }
+
+    @Override
+    public User save(User user) {
+        return mapper.toDomain(jpaRepository.save(mapper.toEntity(user)));
+    }
 }

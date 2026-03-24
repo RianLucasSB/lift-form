@@ -6,6 +6,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.rianlucassb.liftform.core.domain.model.User;
+import com.rianlucassb.liftform.core.gateway.security.AccessTokenGenerator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -13,12 +14,12 @@ import java.time.Instant;
 import java.util.Optional;
 
 @Component
-public class TokenService {
+public class TokenService implements AccessTokenGenerator {
 
     @Value("${security.jwt.secret}")
     private String secret;
 
-    public String generateToken(User user) {
+    public String generate(User user) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
 
         return JWT.create()
