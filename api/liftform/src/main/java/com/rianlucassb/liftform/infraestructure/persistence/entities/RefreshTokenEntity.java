@@ -15,19 +15,20 @@ import java.time.Instant;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class RefreshTokenEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "HASHED_TOKEN", nullable = false, unique = true)
+    private String hashedToken;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "USER_ID", nullable = false)
     private UserEntity user;
-    @Column(name = "HASHED_TOKEN", nullable = false, unique = true)
-    private String hashedToken;
+
     @Column(name = "CREATED_AT", nullable = false, updatable = false)
     @CreationTimestamp
     private Instant createdAt;
+
     @Column(name = "EXPIRES_AT", nullable = false)
     private Instant expiresAt;
+
     @Column(name = "REVOKED", nullable = false)
     private boolean revoked = false;
 }

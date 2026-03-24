@@ -1,4 +1,4 @@
-package com.rianlucassb.liftform.application.dto;
+package com.rianlucassb.liftform.presentation.dto;
 
 public record LoginRequestDTO(
         String login,

@@ -1,13 +1,13 @@
 package com.rianlucassb.liftform.core.domain.model;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record RefreshToken(
-        Long id,
         String hashedToken,
-        User user,
-        Instant expiresAt,
+        UUID userId,
         Instant createdAt,
+        Instant expiresAt,
         Boolean revoked
 ) {
 }
