@@ -1,7 +1,7 @@
 package com.rianlucassb.liftform.core.usecases.user.register;
 
 public record RegisterUseCaseInput(
-        String userName,
+        String username,
         String email,
         String password
 ) {

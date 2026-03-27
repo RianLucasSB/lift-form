@@ -25,12 +25,18 @@ public class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
 
     @Override
     public void save(RefreshToken token) {
-        jpaRepository.save(mapper.toEntity(token));
+        jpaRepository.saveAndFlush(mapper.toEntity(token));
     }
 
     @Override
     public Optional<RefreshToken> findByUserId(UUID userId) {
         return jpaRepository.findByUserId(userId)
+                .map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<RefreshToken> findActiveByUserId(UUID userId) {
+        return jpaRepository.findByUserIdAndRevokedFalse(userId)
                 .map(mapper::toDomain);
     }
 }

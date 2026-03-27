@@ -3,14 +3,12 @@ package com.rianlucassb.liftform.core.usecases.user.login;
 import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.User;
-import com.rianlucassb.liftform.core.gateway.security.AccessTokenGenerator;
-import com.rianlucassb.liftform.core.gateway.security.Hasher;
-import com.rianlucassb.liftform.core.gateway.security.RefreshTokenGenerator;
-import com.rianlucassb.liftform.core.gateway.security.RefreshTokenRepository;
+import com.rianlucassb.liftform.core.gateway.security.*;
 import com.rianlucassb.liftform.core.gateway.user.UserRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 public class LoginUseCaseImpl implements LoginUseCase {
 
@@ -18,32 +16,39 @@ public class LoginUseCaseImpl implements LoginUseCase {
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenGenerator refreshTokenGenerator;
     private final AccessTokenGenerator accessTokenGenerator;
-    private final Hasher hasher;
+    private final PasswordHasher passwordHasher;
+    private final RefreshTokenHasher refreshTokenHasher;
 
     public LoginUseCaseImpl(
             UserRepository userRepository,
             RefreshTokenRepository refreshTokenRepository,
             RefreshTokenGenerator refreshTokenGenerator,
-            AccessTokenGenerator accessTokenGenerator,
-            Hasher hasher
+            AccessTokenGenerator accessTokenGenerator, PasswordHasher passwordHasher, RefreshTokenHasher refreshTokenHasher
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.refreshTokenGenerator = refreshTokenGenerator;
         this.accessTokenGenerator = accessTokenGenerator;
-        this.hasher = hasher;
+        this.passwordHasher = passwordHasher;
+        this.refreshTokenHasher = refreshTokenHasher;
     }
 
     public LoginUseCaseOutput execute(LoginUseCaseInput input) {
         User user = authenticateUser(input.login(), input.password());
 
+        Instant now = Instant.now();
+
+        Optional<RefreshToken> activeToken = refreshTokenRepository.findActiveByUserId(user.id());
+
+        activeToken.ifPresent(token ->
+                refreshTokenRepository.save(token.revoke())
+        );
+
         String accessToken = accessTokenGenerator.generate(user);
         String rawRefreshToken = refreshTokenGenerator.generate();
 
-        Instant now = Instant.now();
-
         RefreshToken refreshToken = new RefreshToken(
-                hasher.hash(rawRefreshToken),
+                refreshTokenHasher.hash(rawRefreshToken),
                 user.id(),
                 now.plus(10, ChronoUnit.DAYS),
                 now,
@@ -68,6 +73,6 @@ public class LoginUseCaseImpl implements LoginUseCase {
     }
 
     private boolean passwordMatches(String raw, String hashed) {
-        return hasher.verify(raw, hashed);
+        return passwordHasher.verify(raw, hashed);
     }
 }

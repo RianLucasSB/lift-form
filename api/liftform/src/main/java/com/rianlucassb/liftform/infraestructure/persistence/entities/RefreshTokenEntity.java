@@ -15,8 +15,8 @@ import java.time.Instant;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class RefreshTokenEntity {
     @Id
-    @Column(name = "HASHED_TOKEN", nullable = false, unique = true)
-    private String hashedToken;
+    @Column(name = "TOKEN_HASH", nullable = false, unique = true)
+    private String tokenHash;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "USER_ID", nullable = false)

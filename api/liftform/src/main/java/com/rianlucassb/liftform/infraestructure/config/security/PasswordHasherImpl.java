@@ -1,11 +1,11 @@
 package com.rianlucassb.liftform.infraestructure.config.security;
 
-import com.rianlucassb.liftform.core.gateway.security.Hasher;
+import com.rianlucassb.liftform.core.gateway.security.PasswordHasher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
-public class HasherImpl implements Hasher {
+public class PasswordHasherImpl implements PasswordHasher {
 
     private final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 

@@ -9,4 +9,5 @@ public interface RefreshTokenRepository {
     Optional<RefreshToken> findByHashedToken(String hashedToken);
     void save(RefreshToken token);
     Optional<RefreshToken> findByUserId(UUID userId);
+    Optional<RefreshToken> findActiveByUserId(UUID userId);
 }

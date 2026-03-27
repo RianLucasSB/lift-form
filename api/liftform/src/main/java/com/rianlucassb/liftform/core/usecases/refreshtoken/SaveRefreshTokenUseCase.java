@@ -21,7 +21,7 @@ public class SaveRefreshTokenUseCase {
                 throw new RuntimeException("Usuário já possui um refresh token válido"); // Todo: criar exception personalizada
             }
             RefreshToken revokedToken = new RefreshToken(
-                    existingToken.hashedToken(),
+                    existingToken.tokenHash(),
                     existingToken.userId(),
                     existingToken.createdAt(),
                     existingToken.expiresAt(),

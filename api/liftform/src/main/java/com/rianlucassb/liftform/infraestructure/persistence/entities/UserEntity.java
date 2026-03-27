@@ -27,7 +27,7 @@ public class UserEntity implements UserDetails {
     @GeneratedUuidV7
     private UUID id;
     @Column(name = "USERNAME", nullable = false, unique = true)
-    private String userName;
+    private String username;
     @Column(name = "EMAIL", nullable = false, unique = true)
     private String email;
     @Column(name = "PASSWORD", nullable = false)
@@ -44,7 +44,7 @@ public class UserEntity implements UserDetails {
     @Override
     @NonNull
     public String getUsername() {
-        return userName;
+        return username;
     }
 
     @Override

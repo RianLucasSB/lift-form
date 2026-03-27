@@ -1,19 +1,19 @@
 package com.rianlucassb.liftform.presentation.dto;
 
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 public record RegisterRequestDTO(
         @NotEmpty(message = "Username must not be empty")
-        @Min(value = 3, message = "Username must be at least 3 characters long")
-        String username,
-
         @Email
         String email,
 
+        @NotEmpty
+        String username,
+
         @NotEmpty(message = "Password must not be empty")
-        @Min(value = 6, message = "Password must be at least 6 characters")
+        @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters")
         String password
 ) {
 }

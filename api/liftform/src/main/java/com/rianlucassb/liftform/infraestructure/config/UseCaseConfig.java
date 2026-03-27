@@ -1,9 +1,6 @@
 package com.rianlucassb.liftform.infraestructure.config;
 
-import com.rianlucassb.liftform.core.gateway.security.AccessTokenGenerator;
-import com.rianlucassb.liftform.core.gateway.security.Hasher;
-import com.rianlucassb.liftform.core.gateway.security.RefreshTokenGenerator;
-import com.rianlucassb.liftform.core.gateway.security.RefreshTokenRepository;
+import com.rianlucassb.liftform.core.gateway.security.*;
 import com.rianlucassb.liftform.core.gateway.user.UserRepository;
 import com.rianlucassb.liftform.core.usecases.user.login.LoginUseCase;
 import com.rianlucassb.liftform.core.usecases.user.login.LoginUseCaseImpl;
@@ -22,14 +19,16 @@ public class UseCaseConfig {
     @Bean("registerUseCaseImpl")
     public RegisterUseCase registerUseCase(
             UserRepository userRepository,
-            Hasher hasher,
+            PasswordHasher passwordHasher,
+            RefreshTokenHasher refreshTokenHasher,
             AccessTokenGenerator accessTokenGenerator,
             RefreshTokenGenerator refreshTokenGenerator,
             RefreshTokenRepository refreshTokenRepository
     ) {
         return new RegisterUseCaseImpl(
                 userRepository,
-                hasher,
+                passwordHasher,
+                refreshTokenHasher,
                 accessTokenGenerator,
                 refreshTokenGenerator,
                 refreshTokenRepository
@@ -50,14 +49,16 @@ public class UseCaseConfig {
             RefreshTokenRepository refreshTokenRepository,
             RefreshTokenGenerator refreshTokenGenerator,
             AccessTokenGenerator accessTokenGenerator,
-            Hasher hasher
-    ) {
+            PasswordHasher passwordHasher,
+            RefreshTokenHasher refreshTokenHasher
+            ) {
         return new LoginUseCaseImpl(
                 userRepository,
                 refreshTokenRepository,
                 refreshTokenGenerator,
                 accessTokenGenerator,
-                hasher
+                passwordHasher,
+                refreshTokenHasher
         );
     }
 
