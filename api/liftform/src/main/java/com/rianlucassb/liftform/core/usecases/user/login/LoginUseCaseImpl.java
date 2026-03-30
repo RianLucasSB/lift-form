@@ -50,8 +50,8 @@ public class LoginUseCaseImpl implements LoginUseCase {
         RefreshToken refreshToken = new RefreshToken(
                 refreshTokenHasher.hash(rawRefreshToken),
                 user.id(),
-                now.plus(10, ChronoUnit.DAYS),
                 now,
+                now.plus(10, ChronoUnit.DAYS),
                 false
         );
 
