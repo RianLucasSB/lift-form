@@ -12,14 +12,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalField;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,137 +27,163 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class LoginUseCaseImplTest {
 
-    @Mock
-    UserRepository userRepository;
-    @Mock
-    PasswordHasher passwordHasher;
-    @Mock
-    RefreshTokenHasher refreshTokenHasher;
-    @Mock
-    AccessTokenGenerator accessTokenGenerator;
-    @Mock
-    RefreshTokenGenerator refreshTokenGenerator;
-    @Mock
-    RefreshTokenRepository refreshTokenRepository;
+    // -------------------------------------------------------------------------
+    // Constants
+    // -------------------------------------------------------------------------
+
+    private static final String LOGIN           = "validusername";
+    private static final String PASSWORD        = "validpassword";
+    private static final String ACCESS_TOKEN    = "validaccesstoken";
+    private static final String REFRESH_TOKEN   = "validrefreshtoken";
+
+    // -------------------------------------------------------------------------
+    // Mocks & Subject
+    // -------------------------------------------------------------------------
+
+    @Mock UserRepository         userRepository;
+    @Mock PasswordHasher         passwordHasher;
+    @Mock RefreshTokenHasher     refreshTokenHasher;
+    @Mock AccessTokenGenerator   accessTokenGenerator;
+    @Mock RefreshTokenGenerator  refreshTokenGenerator;
+    @Mock RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
-    private LoginUseCaseImpl loginUseCase;
+    LoginUseCaseImpl loginUseCase;
+
+    // =========================================================================
+    // Tests
+    // =========================================================================
 
     @Test
     @DisplayName("Should return access token when username and password are valid")
-    void shouldReturnAccessTokenWhenUserNameAndPasswordAreValid() {
-        // Arrange
-        var input = createValidLoginInput();
-
+    void shouldReturnAccessTokenWhenUsernameAndPasswordAreValid() {
         User user = TestFixtures.createUser();
-        doReturn(Optional.empty()).when(userRepository).findByEmail(input.login());
-        doReturn(Optional.of(user)).when(userRepository).findByUsername(input.login());
-        doReturn(true).when(passwordHasher).verify(input.password(), user.password());
-        doReturn("validaccesstoken").when(accessTokenGenerator).generate(user);
-        doReturn("validrefreshtoken").when(refreshTokenGenerator).generate();
 
-        // Act
-        var output = loginUseCase.execute(input);
+        stubUserRepositoryEmptyByEmail(LOGIN);
+        stubUserRepositoryByUsername(LOGIN, user);
+        stubPasswordVerify(PASSWORD, user.password(), true);
+        stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubRefreshTokenGenerator(REFRESH_TOKEN);
 
-        // Assert
+        var output = loginUseCase.execute(validInput());
+
         assertThat(output).isNotNull();
-        assertThat(output.accessToken()).isEqualTo("validaccesstoken");
+        assertThat(output.accessToken()).isEqualTo(ACCESS_TOKEN);
     }
 
     @Test
-    @DisplayName("Should return access token when username and password are valid")
+    @DisplayName("Should return access token when email and password are valid")
     void shouldReturnAccessTokenWhenEmailAndPasswordAreValid() {
-        // Arrange
-        var input = createValidLoginInput();
-
         User user = TestFixtures.createUser();
-        doReturn(Optional.of(user)).when(userRepository).findByEmail(input.login());
 
-        doReturn(true).when(passwordHasher).verify(input.password(), user.password());
-        doReturn("validaccesstoken").when(accessTokenGenerator).generate(user);
-        doReturn("validrefreshtoken").when(refreshTokenGenerator).generate();
+        stubUserRepositoryByEmail(LOGIN, user);
+        stubPasswordVerify(PASSWORD, user.password(), true);
+        stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubRefreshTokenGenerator(REFRESH_TOKEN);
 
-        // Act
-        var output = loginUseCase.execute(input);
+        var output = loginUseCase.execute(validInput());
 
-        // Assert
         assertThat(output).isNotNull();
-        assertThat(output.accessToken()).isEqualTo("validaccesstoken");
+        assertThat(output.accessToken()).isEqualTo(ACCESS_TOKEN);
     }
 
     @Test
     @DisplayName("Should throw InvalidCredentialsException when user does not exist")
-    void shouldThrowInvalidCredentialsWhenUserNotExists(){
-        // Arrange
-        var input = createValidLoginInput();
+    void shouldThrowWhenUserNotExists() {
+        stubUserRepositoryEmptyByEmail(LOGIN);
+        stubUserRepositoryEmptyByUsername(LOGIN);
 
-        doReturn(Optional.empty()).when(userRepository).findByEmail(input.login());
-        doReturn(Optional.empty()).when(userRepository).findByUsername(input.login());
+        Throwable thrown = catchThrowable(() -> loginUseCase.execute(validInput()));
 
-        // Act
-        Throwable thrown = catchThrowable(() -> loginUseCase.execute(input));
-
-        // Assert
-        assertThat(thrown).isInstanceOf(InvalidCredentialsException.class)
+        assertThat(thrown)
+                .isInstanceOf(InvalidCredentialsException.class)
                 .hasMessage("Invalid credentials");
     }
 
     @Test
     @DisplayName("Should throw InvalidCredentialsException when password is incorrect")
-    void shouldThrowInvalidCredentialsWhenPasswordIsIncorrect(){
-        // Arrange
-        var input = createValidLoginInput();
-
+    void shouldThrowWhenPasswordIsIncorrect() {
         User user = TestFixtures.createUser();
-        doReturn(Optional.of(user)).when(userRepository).findByEmail(input.login());
-        doReturn(false).when(passwordHasher).verify(input.password(), user.password());
 
-        // Act
-        Throwable thrown = catchThrowable(() -> loginUseCase.execute(input));
+        stubUserRepositoryByEmail(LOGIN, user);
+        stubPasswordVerify(PASSWORD, user.password(), false);
 
-        // Assert
-        assertThat(thrown).isInstanceOf(InvalidCredentialsException.class)
+        Throwable thrown = catchThrowable(() -> loginUseCase.execute(validInput()));
+
+        assertThat(thrown)
+                .isInstanceOf(InvalidCredentialsException.class)
                 .hasMessage("Invalid credentials");
     }
 
     @Test
-    @DisplayName("Should save refresh token with correct data when successful")
-    void shouldSaveRefreshTokenWithCorrectDataWhenSuccessfull(){
-        // Arrange
-        var input = createValidLoginInput();
-
+    @DisplayName("Should save refresh token with correct data when login is successful")
+    void shouldSaveRefreshTokenWithCorrectDataWhenSuccessful() {
         User user = TestFixtures.createUser();
-        doReturn(Optional.empty()).when(userRepository).findByEmail(input.login());
-        doReturn(Optional.of(user)).when(userRepository).findByUsername(input.login());
-        doReturn(true).when(passwordHasher).verify(input.password(), user.password());
-        doReturn("validaccesstoken").when(accessTokenGenerator).generate(user);
-        doReturn("validrefreshtoken").when(refreshTokenGenerator).generate();
 
-        // Act
-        var output = loginUseCase.execute(input);
+        stubUserRepositoryEmptyByEmail(LOGIN);
+        stubUserRepositoryByUsername(LOGIN, user);
+        stubPasswordVerify(PASSWORD, user.password(), true);
+        stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubRefreshTokenGenerator(REFRESH_TOKEN);
 
-        // Assert
-        assertThat(output).isNotNull();
-        assertThat(output.accessToken()).isEqualTo("validaccesstoken");
+        loginUseCase.execute(validInput());
 
-        ArgumentCaptor<RefreshToken> refreshTokenCaptor = ArgumentCaptor.forClass(RefreshToken.class);
-        verify(refreshTokenRepository).save(refreshTokenCaptor.capture());
+        assertRefreshTokenSaved();
+    }
 
-        RefreshToken saved = refreshTokenCaptor.getValue();
+    // =========================================================================
+    // Stub helpers
+    // =========================================================================
+
+    private void stubUserRepositoryByEmail(String login, User user) {
+        doReturn(Optional.of(user)).when(userRepository).findByEmail(login);
+    }
+
+    private void stubUserRepositoryEmptyByEmail(String login) {
+        doReturn(Optional.empty()).when(userRepository).findByEmail(login);
+    }
+
+    private void stubUserRepositoryByUsername(String login, User user) {
+        doReturn(Optional.of(user)).when(userRepository).findByUsername(login);
+    }
+
+    private void stubUserRepositoryEmptyByUsername(String login) {
+        doReturn(Optional.empty()).when(userRepository).findByUsername(login);
+    }
+
+    private void stubPasswordVerify(String raw, String hashed, boolean result) {
+        doReturn(result).when(passwordHasher).verify(raw, hashed);
+    }
+
+    private void stubAccessTokenGenerator(User user, String token) {
+        doReturn(token).when(accessTokenGenerator).generate(user);
+    }
+
+    private void stubRefreshTokenGenerator(String token) {
+        doReturn(token).when(refreshTokenGenerator).generate();
+    }
+
+    // =========================================================================
+    // Input factories
+    // =========================================================================
+
+    private LoginUseCaseInput validInput() {
+        return new LoginUseCaseInput(LOGIN, PASSWORD);
+    }
+
+    // =========================================================================
+    // Assert helpers
+    // =========================================================================
+
+    private void assertRefreshTokenSaved() {
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+
+        RefreshToken saved = captor.getValue();
+        Instant now = Instant.now();
 
         assertThat(saved.revoked()).isFalse();
-
-        Instant now = Instant.now();
-        Instant expectedExpiration = now.plus(10, ChronoUnit.DAYS);
-
         assertThat(saved.expiresAt())
-                .isCloseTo(expectedExpiration, within(1, ChronoUnit.SECONDS));
-
+                .isCloseTo(now.plus(10, ChronoUnit.DAYS), within(1, ChronoUnit.SECONDS));
     }
-
-
-    private LoginUseCaseInput createValidLoginInput(){
-        return new LoginUseCaseInput("validusername", "validpassword");
-    }
-
 }
