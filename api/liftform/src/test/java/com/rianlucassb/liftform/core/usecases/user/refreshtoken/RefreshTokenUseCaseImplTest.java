@@ -1,5 +1,6 @@
 package com.rianlucassb.liftform.core.usecases.user.refreshtoken;
 
+import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.User;
 import com.rianlucassb.liftform.core.gateway.security.*;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 
@@ -81,6 +83,34 @@ public class RefreshTokenUseCaseImplTest {
 
         assertThat(output.accessToken()).isNotNull();
         assertThat(output.refreshToken()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Should throw InvalidCredentialsException when refresh token is revoked")
+    void shouldThrowInvalidCredentialsWhenRefreshTokenIsRevoked(){
+        // Arrange
+        var validInput = new RefreshTokenUseCaseInput("validrefreshtoken");
+        var revokedRefreshToken = new RefreshToken(
+                refreshTokenHasher.hash(validInput.refreshToken()),
+                UUID.randomUUID(),
+                null,
+                null,
+                true
+        );
+
+        doReturn("hashedtoken")
+                .when(refreshTokenHasher)
+                .hash(validInput.refreshToken());
+
+        doReturn(Optional.of(revokedRefreshToken))
+                .when(refreshTokenRepository)
+                .findByHashedToken(any());
+
+        // Act
+        Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
+
+        // Assert
+        assertThat(thrown).isInstanceOf(InvalidCredentialsException.class);
     }
 
 }
