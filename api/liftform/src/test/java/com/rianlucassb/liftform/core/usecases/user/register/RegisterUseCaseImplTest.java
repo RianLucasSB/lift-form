@@ -6,7 +6,6 @@ import com.rianlucassb.liftform.core.domain.model.User;
 import com.rianlucassb.liftform.core.gateway.security.*;
 import com.rianlucassb.liftform.core.gateway.user.UserRepository;
 import com.rianlucassb.liftform.util.TestFixtures;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,144 +21,165 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.BDDAssertions.within;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RegisterUseCaseImplTest {
 
-    @Mock
-    UserRepository userRepository;
-    @Mock
-    PasswordHasher passwordHasher;
-    @Mock
-    RefreshTokenHasher refreshTokenHasher;
-    @Mock
-    AccessTokenGenerator accessTokenGenerator;
-    @Mock
-    RefreshTokenGenerator refreshTokenGenerator;
-    @Mock
-    RefreshTokenRepository refreshTokenRepository;
+    // -------------------------------------------------------------------------
+    // Constants
+    // -------------------------------------------------------------------------
+
+    private static final String RAW_PASSWORD    = "testpassword";
+    private static final String HASHED_PASSWORD = "hashedpassword";
+    private static final String ACCESS_TOKEN    = "generatedaccesstoken";
+    private static final String REFRESH_TOKEN   = "generatedrefreshtoken";
+
+    // -------------------------------------------------------------------------
+    // Mocks & Subject
+    // -------------------------------------------------------------------------
+
+    @Mock UserRepository         userRepository;
+    @Mock PasswordHasher         passwordHasher;
+    @Mock RefreshTokenHasher     refreshTokenHasher;
+    @Mock AccessTokenGenerator   accessTokenGenerator;
+    @Mock RefreshTokenGenerator  refreshTokenGenerator;
+    @Mock RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
     RegisterUseCaseImpl registerUseCase;
 
-    @BeforeEach
-    void setup() {
-        // Setup any necessary data or configurations before all tests
-
-    }
+    // =========================================================================
+    // Tests
+    // =========================================================================
 
     @Test
-    @DisplayName("Should create user with success when user not exists")
-    void shouldCreateUserWithSuccessWhenUserNotExists() {
-        // Arrange
+    @DisplayName("Should create user with success when user does not exist")
+    void shouldCreateUserWhenUserNotExists() {
         RegisterUseCaseInput input = TestFixtures.createRegisterInput();
+        stubHappyPath(input);
 
-        doReturn(Optional.empty()).when(userRepository).findByEmail(input.email());
-        doReturn(Optional.empty()).when(userRepository).findByUsername(input.username());
-        doReturn(TestFixtures.createUser()).when(userRepository).save(any(User.class));
-        doReturn("hashedpassword").when(passwordHasher).hash("testpassword");
-        doReturn("generatedaccesstoken").when(accessTokenGenerator).generate(org.mockito.ArgumentMatchers.any());
-        doReturn("generatedrefreshtoken").when(refreshTokenGenerator).generate();
-
-        // Act
         var output = registerUseCase.execute(input);
 
-        // Assert
         assertThat(output).isNotNull();
-        assertThat(output.accessToken()).isEqualTo("generatedaccesstoken");
-        assertThat(output.refreshToken()).isEqualTo("generatedrefreshtoken");
-
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userCaptor.capture());
-
-        User savedUser = userCaptor.getValue();
-        assertThat(savedUser.email()).isEqualTo(input.email());
-        assertThat(savedUser.username()).isEqualTo(input.username());
-        assertThat(savedUser.password()).isEqualTo("hashedpassword");
+        assertThat(output.accessToken()).isEqualTo(ACCESS_TOKEN);
+        assertThat(output.refreshToken()).isEqualTo(REFRESH_TOKEN);
+        assertSavedUserFields(input);
     }
 
     @Test
-    @DisplayName("Should save refresh token with correct data when successful")
-    void shouldSaveRefreshTokenWithCorrectDataWhenSuccessfull(){
-        // Arrange
+    @DisplayName("Should save refresh token with correct data when registration is successful")
+    void shouldSaveRefreshTokenWithCorrectDataWhenSuccessful() {
         RegisterUseCaseInput input = TestFixtures.createRegisterInput();
+        stubHappyPath(input);
 
-        doReturn(Optional.empty()).when(userRepository).findByEmail(input.email());
-        doReturn(Optional.empty()).when(userRepository).findByUsername(input.username());
-        doReturn(TestFixtures.createUser()).when(userRepository).save(any(User.class));
-        doReturn("hashedpassword").when(passwordHasher).hash("testpassword");
-        doReturn("generatedaccesstoken").when(accessTokenGenerator).generate(org.mockito.ArgumentMatchers.any());
-        doReturn("generatedrefreshtoken").when(refreshTokenGenerator).generate();
+        registerUseCase.execute(input);
 
-        // Act
-        var output = registerUseCase.execute(input);
-
-        // Assert
-        assertThat(output).isNotNull();
-        assertThat(output.accessToken()).isEqualTo("generatedaccesstoken");
-
-        ArgumentCaptor<RefreshToken> refreshTokenCaptor = ArgumentCaptor.forClass(RefreshToken.class);
-        verify(refreshTokenRepository).save(refreshTokenCaptor.capture());
-
-        RefreshToken saved = refreshTokenCaptor.getValue();
-
-        assertThat(saved.revoked()).isFalse();
-
-        Instant now = Instant.now();
-        Instant expectedExpiration = now.plus(10, ChronoUnit.DAYS);
-
-        assertThat(saved.expiresAt())
-                .isCloseTo(expectedExpiration, within(1, ChronoUnit.SECONDS));
-
+        assertRefreshTokenSaved();
     }
 
     @Test
-    @DisplayName("Should throw exception on error")
-    void shouldThrowExceptionOnerror(){
-        // Arrange
+    @DisplayName("Should throw RuntimeException when user repository save fails")
+    void shouldThrowWhenRepositorySaveFails() {
+        RegisterUseCaseInput input = TestFixtures.createRegisterInput();
         doThrow(new RuntimeException()).when(userRepository).save(any());
-        var input = TestFixtures.createRegisterInput();
 
-        // Act & Assert
-        Throwable thrown = catchThrowable(() -> {
-            registerUseCase.execute(input);
-        });
+        Throwable thrown = catchThrowable(() -> registerUseCase.execute(input));
 
-        // Assert
         assertThat(thrown).isInstanceOf(RuntimeException.class);
     }
 
     @Test
-    @DisplayName("Should throw AlreadyExistsException when email already in use")
-    void shouldThrowAlreadyExistsExceptionWhenEmailAlreadyInUse() {
-        // Arrange
+    @DisplayName("Should throw AlreadyExistsException when email is already in use")
+    void shouldThrowWhenEmailAlreadyInUse() {
         RegisterUseCaseInput input = TestFixtures.createRegisterInput();
-        doReturn(Optional.of(TestFixtures.createUser())).when(userRepository).findByEmail(input.email());
+        stubUserRepositoryByEmail(input.email(), TestFixtures.createUser());
 
-        // Act
-        Throwable thrown = catchThrowable(() -> {
-            registerUseCase.execute(input);
-        });
+        Throwable thrown = catchThrowable(() -> registerUseCase.execute(input));
 
-        // Assert
         assertThat(thrown).isInstanceOf(AlreadyExistsException.class);
     }
 
     @Test
-    @DisplayName("Should throw AlreadyExistsException when username already in use")
-    void shouldThrowAlreadyExistsExceptionWhenUsernameAlreadyInUse() {
-        // Arrange
+    @DisplayName("Should throw AlreadyExistsException when username is already in use")
+    void shouldThrowWhenUsernameAlreadyInUse() {
         RegisterUseCaseInput input = TestFixtures.createRegisterInput();
+        stubUserRepositoryByUsername(input.username(), TestFixtures.createUser());
 
-        doReturn(Optional.of(TestFixtures.createUser())).when(userRepository).findByUsername(input.username());
+        Throwable thrown = catchThrowable(() -> registerUseCase.execute(input));
 
-        // Act
-        Throwable thrown = catchThrowable(() -> {
-            registerUseCase.execute(input);
-        });
-
-        // Assert
         assertThat(thrown).isInstanceOf(AlreadyExistsException.class);
+    }
+
+    // =========================================================================
+    // Stub helpers
+    // =========================================================================
+
+    private void stubHappyPath(RegisterUseCaseInput input) {
+        stubUserRepositoryEmptyByEmail(input.email());
+        stubUserRepositoryEmptyByUsername(input.username());
+        stubUserRepositorySave(TestFixtures.createUser());
+        stubPasswordHasher(RAW_PASSWORD, HASHED_PASSWORD);
+        stubAccessTokenGenerator(ACCESS_TOKEN);
+        stubRefreshTokenGenerator(REFRESH_TOKEN);
+    }
+
+    private void stubUserRepositoryByEmail(String email, User user) {
+        doReturn(Optional.of(user)).when(userRepository).findByEmail(email);
+    }
+
+    private void stubUserRepositoryEmptyByEmail(String email) {
+        doReturn(Optional.empty()).when(userRepository).findByEmail(email);
+    }
+
+    private void stubUserRepositoryByUsername(String username, User user) {
+        doReturn(Optional.of(user)).when(userRepository).findByUsername(username);
+    }
+
+    private void stubUserRepositoryEmptyByUsername(String username) {
+        doReturn(Optional.empty()).when(userRepository).findByUsername(username);
+    }
+
+    private void stubUserRepositorySave(User user) {
+        doReturn(user).when(userRepository).save(any(User.class));
+    }
+
+    private void stubPasswordHasher(String raw, String hashed) {
+        doReturn(hashed).when(passwordHasher).hash(raw);
+    }
+
+    private void stubAccessTokenGenerator(String token) {
+        doReturn(token).when(accessTokenGenerator).generate(any());
+    }
+
+    private void stubRefreshTokenGenerator(String token) {
+        doReturn(token).when(refreshTokenGenerator).generate();
+    }
+
+    // =========================================================================
+    // Assert helpers
+    // =========================================================================
+
+    private void assertSavedUserFields(RegisterUseCaseInput input) {
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+
+        User saved = captor.getValue();
+        assertThat(saved.email()).isEqualTo(input.email());
+        assertThat(saved.username()).isEqualTo(input.username());
+        assertThat(saved.password()).isEqualTo(HASHED_PASSWORD);
+    }
+
+    private void assertRefreshTokenSaved() {
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+
+        RefreshToken saved = captor.getValue();
+        Instant now = Instant.now();
+
+        assertThat(saved.revoked()).isFalse();
+        assertThat(saved.expiresAt())
+                .isCloseTo(now.plus(10, ChronoUnit.DAYS), within(1, ChronoUnit.SECONDS));
     }
 }
