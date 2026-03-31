@@ -86,6 +86,28 @@ public class RefreshTokenUseCaseImplTest {
     }
 
     @Test
+    @DisplayName("Should throw InvalidCredentialsException when refresh token is not found")
+    void shouldThrowInvalidCredentialsWhenRefreshTokenIsNotFound(){
+        // Arrange
+        var validInput = new RefreshTokenUseCaseInput("validrefreshtoken");
+
+        doReturn("hashedtoken")
+                .when(refreshTokenHasher)
+                .hash(validInput.refreshToken());
+
+        doReturn(Optional.empty())
+                .when(refreshTokenRepository)
+                .findByHashedToken(any());
+
+        // Act
+        Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
+
+        // Assert
+        assertThat(thrown).isInstanceOf(InvalidCredentialsException.class);
+    }
+
+
+    @Test
     @DisplayName("Should throw InvalidCredentialsException when refresh token is revoked")
     void shouldThrowInvalidCredentialsWhenRefreshTokenIsRevoked(){
         // Arrange
