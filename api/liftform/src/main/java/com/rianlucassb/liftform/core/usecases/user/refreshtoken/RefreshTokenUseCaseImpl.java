@@ -52,8 +52,22 @@ public class RefreshTokenUseCaseImpl implements RefreshTokenUseCase {
                 .findById(foundRefreshToken.userId())
                 .orElseThrow(() -> new UserNotFoundAuthException("Invalid credentials"));
 
+        refreshTokenRepository.save(foundRefreshToken.revoke());
+
         String newRefreshTokenRaw = refreshTokenGenerator.generate();
         String accessToken = accessTokenGenerator.generate(user);
+
+        Instant now = Instant.now();
+
+        RefreshToken newRefreshToken = new RefreshToken(
+                refreshTokenHasher.hash(newRefreshTokenRaw),
+                user.id(),
+                now,
+                now.plus(10, java.time.temporal.ChronoUnit.DAYS),
+                false
+        );
+
+        refreshTokenRepository.save(newRefreshToken);
 
         return new RefreshTokenUseCaseOutput(accessToken, newRefreshTokenRaw);
     }
