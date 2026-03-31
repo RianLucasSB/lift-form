@@ -7,6 +7,7 @@ import com.rianlucassb.liftform.infraestructure.persistence.repository.UserJpaRe
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class UserRepositoryImpl implements UserRepository {
@@ -17,6 +18,12 @@ public class UserRepositoryImpl implements UserRepository {
     public UserRepositoryImpl(UserJpaRepository jpaRepository, UserMapper mapper) {
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
+    }
+
+    @Override
+    public Optional<User> findById(UUID id) {
+        return jpaRepository.findById(id)
+                .map(mapper::toDomain);
     }
 
     @Override
