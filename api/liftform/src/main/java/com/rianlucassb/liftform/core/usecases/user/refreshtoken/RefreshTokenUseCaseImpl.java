@@ -1,5 +1,6 @@
 package com.rianlucassb.liftform.core.usecases.user.refreshtoken;
 
+import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.User;
 import com.rianlucassb.liftform.core.gateway.security.AccessTokenGenerator;
@@ -33,7 +34,11 @@ public class RefreshTokenUseCaseImpl implements RefreshTokenUseCase {
     @Override
     public RefreshTokenUseCaseOutput execute(RefreshTokenUseCaseInput input) {
         RefreshToken foundRefreshToken = refreshTokenRepository.findByHashedToken(refreshTokenHasher.hash(input.refreshToken()))
-                .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+
+        if(foundRefreshToken.revoked()) {
+            throw new InvalidCredentialsException("Invalid credentials");
+        }
 
         User user = userRepository
                 .findById(foundRefreshToken.userId())
