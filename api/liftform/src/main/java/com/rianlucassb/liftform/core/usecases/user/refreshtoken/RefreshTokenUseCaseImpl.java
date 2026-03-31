@@ -1,6 +1,7 @@
 package com.rianlucassb.liftform.core.usecases.user.refreshtoken;
 
 import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
+import com.rianlucassb.liftform.core.domain.exception.InvalidRefreshTokenException;
 import com.rianlucassb.liftform.core.domain.exception.UserNotFoundAuthException;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.User;
@@ -9,6 +10,8 @@ import com.rianlucassb.liftform.core.gateway.security.RefreshTokenGenerator;
 import com.rianlucassb.liftform.core.gateway.security.RefreshTokenHasher;
 import com.rianlucassb.liftform.core.gateway.security.RefreshTokenRepository;
 import com.rianlucassb.liftform.core.gateway.user.UserRepository;
+
+import java.time.Instant;
 
 public class RefreshTokenUseCaseImpl implements RefreshTokenUseCase {
     private final RefreshTokenRepository refreshTokenRepository;
@@ -35,10 +38,14 @@ public class RefreshTokenUseCaseImpl implements RefreshTokenUseCase {
     @Override
     public RefreshTokenUseCaseOutput execute(RefreshTokenUseCaseInput input) {
         RefreshToken foundRefreshToken = refreshTokenRepository.findByHashedToken(refreshTokenHasher.hash(input.refreshToken()))
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+                .orElseThrow(() -> new InvalidRefreshTokenException("Invalid credentials"));
 
         if(foundRefreshToken.revoked()) {
-            throw new InvalidCredentialsException("Invalid credentials");
+            throw new InvalidRefreshTokenException("Invalid credentials");
+        }
+
+        if(foundRefreshToken.expiresAt().isBefore(Instant.now())) {
+            throw new InvalidRefreshTokenException("Invalid credentials");
         }
 
         User user = userRepository

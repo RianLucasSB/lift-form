@@ -1,6 +1,7 @@
 package com.rianlucassb.liftform.core.usecases.user.refreshtoken;
 
 import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
+import com.rianlucassb.liftform.core.domain.exception.InvalidRefreshTokenException;
 import com.rianlucassb.liftform.core.domain.exception.UserNotFoundAuthException;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.User;
@@ -15,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.time.temporal.TemporalUnit;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,8 +52,8 @@ public class RefreshTokenUseCaseImplTest {
         var validRefreshToken = new RefreshToken(
                 refreshTokenHasher.hash(validInput.refreshToken()),
                 UUID.randomUUID(),
-                null,
-                null,
+                Instant.now(),
+                Instant.now().plus(10, java.time.temporal.ChronoUnit.DAYS),
                 false
         );
 
@@ -105,7 +107,7 @@ public class RefreshTokenUseCaseImplTest {
         Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
 
         // Assert
-        assertThat(thrown).isInstanceOf(InvalidCredentialsException.class);
+        assertThat(thrown).isInstanceOf(InvalidRefreshTokenException.class);
     }
 
 
@@ -117,8 +119,8 @@ public class RefreshTokenUseCaseImplTest {
         var revokedRefreshToken = new RefreshToken(
                 refreshTokenHasher.hash(validInput.refreshToken()),
                 UUID.randomUUID(),
-                null,
-                null,
+                Instant.now(),
+                Instant.now().plus(10, java.time.temporal.ChronoUnit.DAYS),
                 true
         );
 
@@ -134,7 +136,7 @@ public class RefreshTokenUseCaseImplTest {
         Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
 
         // Assert
-        assertThat(thrown).isInstanceOf(InvalidCredentialsException.class);
+        assertThat(thrown).isInstanceOf(InvalidRefreshTokenException.class);
     }
 
     @Test
@@ -145,8 +147,8 @@ public class RefreshTokenUseCaseImplTest {
         var validRefreshToken = new RefreshToken(
                 refreshTokenHasher.hash(validInput.refreshToken()),
                 UUID.randomUUID(),
-                null,
-                null,
+                Instant.now(),
+                Instant.now().plus(10, java.time.temporal.ChronoUnit.DAYS),
                 false
         );
 
@@ -178,7 +180,7 @@ public class RefreshTokenUseCaseImplTest {
         var expiredRefreshToken = new RefreshToken(
                 refreshTokenHasher.hash(validInput.refreshToken()),
                 UUID.randomUUID(),
-                null,
+                Instant.now(),
                 Instant.now().minus(1, java.time.temporal.ChronoUnit.DAYS),
                 false
         );
@@ -195,7 +197,7 @@ public class RefreshTokenUseCaseImplTest {
         Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
 
         // Assert
-        assertThat(thrown).isInstanceOf(UserNotFoundAuthException.class);
+        assertThat(thrown).isInstanceOf(InvalidRefreshTokenException.class);
     }
 
 }
