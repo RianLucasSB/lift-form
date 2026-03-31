@@ -1,6 +1,7 @@
 package com.rianlucassb.liftform.core.usecases.user.refreshtoken;
 
 import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
+import com.rianlucassb.liftform.core.domain.exception.UserNotFoundAuthException;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.User;
 import com.rianlucassb.liftform.core.gateway.security.*;
@@ -13,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -133,6 +135,67 @@ public class RefreshTokenUseCaseImplTest {
 
         // Assert
         assertThat(thrown).isInstanceOf(InvalidCredentialsException.class);
+    }
+
+    @Test
+    @DisplayName("Should throw InvalidCredentialsException when refresh token user owner is not found")
+    void shouldThrowInvalidCredentialsWhenRefreshTokenUserOwnerIsNotFound(){
+        // Arrange
+        var validInput = new RefreshTokenUseCaseInput("validrefreshtoken");
+        var validRefreshToken = new RefreshToken(
+                refreshTokenHasher.hash(validInput.refreshToken()),
+                UUID.randomUUID(),
+                null,
+                null,
+                false
+        );
+
+        doReturn("hashedtoken")
+                .when(refreshTokenHasher)
+                .hash(validInput.refreshToken());
+
+        doReturn(Optional.of(validRefreshToken))
+                .when(refreshTokenRepository)
+                .findByHashedToken(any());
+
+        doReturn(Optional.empty())
+                .when(userRepository)
+                .findById(validRefreshToken.userId());
+
+        // Act
+        Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
+
+        // Assert
+        assertThat(thrown).isInstanceOf(UserNotFoundAuthException.class);
+    }
+
+
+    @Test
+    @DisplayName("Should throw InvalidCredentialsException when refresh token is expired")
+    void shouldThrowInvalidCredentialsWhenRefreshTokenIsExpired(){
+        // Arrange
+        var validInput = new RefreshTokenUseCaseInput("validrefreshtoken");
+        var expiredRefreshToken = new RefreshToken(
+                refreshTokenHasher.hash(validInput.refreshToken()),
+                UUID.randomUUID(),
+                null,
+                Instant.now().minus(1, java.time.temporal.ChronoUnit.DAYS),
+                false
+        );
+
+        doReturn("hashedtoken")
+                .when(refreshTokenHasher)
+                .hash(validInput.refreshToken());
+
+        doReturn(Optional.of(expiredRefreshToken))
+                .when(refreshTokenRepository)
+                .findByHashedToken(any());
+
+        // Act
+        Throwable thrown = catchThrowable(() -> refreshTokenUseCase.execute(validInput));
+
+        // Assert
+        assertThat(thrown).isInstanceOf(UserNotFoundAuthException.class);
     }
 
 }
