@@ -3,6 +3,7 @@ package com.rianlucassb.liftform.core.usecases.analysis.create;
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.domain.model.VideoAnalysis;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoAnalysisRepository;
+import com.rianlucassb.liftform.core.gateway.analysis.VideoStorage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,8 +24,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class CreateAnalysisUseCaseImplTest {
 
-    @Mock
-    private VideoAnalysisRepository videoAnalysisRepository;
+    @Mock private VideoAnalysisRepository videoAnalysisRepository;
+    @Mock private VideoStorage videoStorage;
 
     @InjectMocks
     private CreateAnalysisUseCaseImpl createAnalysisUseCase;
@@ -62,6 +64,26 @@ class CreateAnalysisUseCaseImplTest {
 
         assertThat(captor.getValue().userId()).isEqualTo(UUID.fromString(input.userId()));
         assertThat(captor.getValue().exerciseType()).isEqualTo(input.exerciseType());
+    }
+
+    @Test
+    @DisplayName("Should call videoAnalysisRepository with input fields")
+    void shouldCallVideoStorageWithCorrectKeyAnd15MinDuration() {
+        // Arrange
+        var input = createValidInput();
+        ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Duration> durationCaptor = ArgumentCaptor.forClass(Duration.class);
+
+        doReturn(createValidVideoAnalysis()).when(videoAnalysisRepository).save(org.mockito.ArgumentMatchers.any());
+
+        // Act
+        createAnalysisUseCase.execute(input);
+
+        // Assert
+        verify(videoStorage).generateUploadUrl(keyCaptor.capture(), durationCaptor.capture());
+
+        assertThat(keyCaptor.getValue()).startsWith(input.exerciseType() + "/" + input.userId());
+        assertThat(durationCaptor.getValue()).isEqualTo(Duration.ofMinutes(15));
     }
 
     private VideoAnalysis createValidVideoAnalysis() {
