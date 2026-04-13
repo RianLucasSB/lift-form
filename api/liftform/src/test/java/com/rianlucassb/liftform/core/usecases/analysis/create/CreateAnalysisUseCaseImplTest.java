@@ -167,6 +167,16 @@ class CreateAnalysisUseCaseImplTest {
                 .isInstanceOf(NullPointerException.class);
     }
 
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when exerciseType is blank")
+    void shouldThrowWhenExerciseTypeIsBlank() {
+        var input = new CreateAnalysisUseCaseInput(UUID.randomUUID().toString(), "   ", "file.mp4");
+
+        assertThatThrownBy(() -> createAnalysisUseCase.execute(input))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("exerciseType must not be blank");
+    }
+
     // ── Infrastructure failure propagation ───────────────────────────────────
 
     @Test
