@@ -3,6 +3,7 @@ package com.rianlucassb.liftform.core.usecases.analysis.create;
 import com.rianlucassb.liftform.core.domain.exception.VideoStoreException;
 import com.rianlucassb.liftform.core.domain.exception.VideoUploadUrlGenerationException;
 import com.rianlucassb.liftform.core.domain.model.VideoAnalysis;
+import com.rianlucassb.liftform.core.domain.model.enums.ExerciseType;
 import com.rianlucassb.liftform.core.domain.model.enums.VideoAnalysisStatus;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoAnalysisRepository;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoStorage;
@@ -134,7 +135,7 @@ class CreateAnalysisUseCaseImplTest {
     @Test
     @DisplayName("Should throw NullPointerException when userId is null")
     void shouldThrowWhenUserIdIsNull() {
-        var input = new CreateAnalysisUseCaseInput(null, "SQUAT", "file.mp4");
+        var input = new CreateAnalysisUseCaseInput(null, ExerciseType.SQUAT, "file.mp4");
 
         assertThatThrownBy(() -> createAnalysisUseCase.execute(input))
                 .isInstanceOf(NullPointerException.class);
@@ -143,7 +144,7 @@ class CreateAnalysisUseCaseImplTest {
     @Test
     @DisplayName("Should throw IllegalArgumentException when userId is blank")
     void shouldThrowWhenUserIdIsBlank() {
-        var input = new CreateAnalysisUseCaseInput("   ", "SQUAT", "file.mp4");
+        var input = new CreateAnalysisUseCaseInput("   ", ExerciseType.SQUAT, "file.mp4");
 
         assertThatThrownBy(() -> createAnalysisUseCase.execute(input))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -152,7 +153,7 @@ class CreateAnalysisUseCaseImplTest {
     @Test
     @DisplayName("Should throw IllegalArgumentException when userId is not a valid UUID")
     void shouldThrowWhenUserIdIsNotAValidUUID() {
-        var input = new CreateAnalysisUseCaseInput("not-a-uuid", "SQUAT", "file.mp4");
+        var input = new CreateAnalysisUseCaseInput("not-a-uuid", ExerciseType.SQUAT, "file.mp4");
 
         assertThatThrownBy(() -> createAnalysisUseCase.execute(input))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -167,18 +168,7 @@ class CreateAnalysisUseCaseImplTest {
                 .isInstanceOf(NullPointerException.class);
     }
 
-    @Test
-    @DisplayName("Should throw IllegalArgumentException when exerciseType is blank")
-    void shouldThrowWhenExerciseTypeIsBlank() {
-        var input = new CreateAnalysisUseCaseInput(UUID.randomUUID().toString(), "   ", "file.mp4");
-
-        assertThatThrownBy(() -> createAnalysisUseCase.execute(input))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("exerciseType must not be blank");
-    }
-
     // ── Infrastructure failure propagation ───────────────────────────────────
-
     @Test
     @DisplayName("Should propagate exception thrown by videoAnalysisRepository.save")
     void shouldPropagateExceptionFromRepository() {
@@ -209,7 +199,7 @@ class CreateAnalysisUseCaseImplTest {
         return new VideoAnalysis(
                 1L,
                 userId,
-                "SQUAT",
+                ExerciseType.SQUAT,
                 "videos/SQUAT/" + userId + "/" + UUID.randomUUID() + ".mp4",
                 VideoAnalysisStatus.CREATED,
                 null,
@@ -221,7 +211,7 @@ class CreateAnalysisUseCaseImplTest {
     private CreateAnalysisUseCaseInput createValidInput() {
         return new CreateAnalysisUseCaseInput(
                 UUID.randomUUID().toString(),
-                "SQUAT",
+                ExerciseType.SQUAT,
                 "filename.mp4"
         );
     }

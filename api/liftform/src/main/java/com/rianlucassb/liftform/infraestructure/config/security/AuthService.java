@@ -2,7 +2,7 @@ package com.rianlucassb.liftform.infraestructure.config.security;
 
 import com.rianlucassb.liftform.core.gateway.user.UserRepository;
 import com.rianlucassb.liftform.core.domain.model.User;
-import com.rianlucassb.liftform.infraestructure.persistence.mapper.UserMapper;
+import com.rianlucassb.liftform.infraestructure.adapter.persistence.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

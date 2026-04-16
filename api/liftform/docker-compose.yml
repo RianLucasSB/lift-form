@@ -9,6 +9,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
-
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN- }
 volumes:
   postgres_data:

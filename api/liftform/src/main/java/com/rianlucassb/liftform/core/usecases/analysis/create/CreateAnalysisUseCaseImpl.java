@@ -12,7 +12,7 @@ import java.util.UUID;
 public class CreateAnalysisUseCaseImpl implements CreateAnalysisUseCase {
 
     private static final Duration UPLOAD_EXPIRATION = Duration.ofMinutes(15);
-    private static final int UPLOAD_EXPIRATION_SECONDS = (int) UPLOAD_EXPIRATION.getSeconds();
+    private static final long UPLOAD_EXPIRATION_SECONDS = (long) UPLOAD_EXPIRATION.getSeconds();
 
     private final VideoAnalysisRepository videoAnalysisRepository;
     private final VideoStorage videoStorage;
@@ -29,7 +29,6 @@ public class CreateAnalysisUseCaseImpl implements CreateAnalysisUseCase {
         Objects.requireNonNull(input.exerciseType(), "exerciseType must not be null");
 
         if (input.userId().isBlank()) throw new IllegalArgumentException("userId must not be blank");
-        if (input.exerciseType().isBlank()) throw new IllegalArgumentException("exerciseType must not be blank");
 
         UUID userId = UUID.fromString(input.userId()); // throws IllegalArgumentException for invalid UUIDs
 

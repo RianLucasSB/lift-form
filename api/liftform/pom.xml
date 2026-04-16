@@ -33,6 +33,12 @@
 	</properties>
 	<profiles>
 		<profile>
+			<id>local</id>
+			<properties>
+				<spring.profiles.active>local</spring.profiles.active>
+			</properties>
+		</profile>
+		<profile>
 			<id>dev</id>
 			<properties>
 				<spring.profiles.active>dev</spring.profiles.active>
@@ -84,6 +90,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 			<version>3.5.7</version>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<version>2.29.0</version>
 		</dependency>
 
 		<dependency>
