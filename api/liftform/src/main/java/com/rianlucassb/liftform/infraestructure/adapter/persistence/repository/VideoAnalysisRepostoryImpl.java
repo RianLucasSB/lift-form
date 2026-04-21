@@ -1,9 +1,8 @@
-package com.rianlucassb.liftform.infraestructure.adapter.persistence.adapter;
+package com.rianlucassb.liftform.infraestructure.adapter.persistence.repository;
 
 import com.rianlucassb.liftform.core.domain.model.VideoAnalysis;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoAnalysisRepository;
 import com.rianlucassb.liftform.infraestructure.adapter.persistence.mapper.VideoAnalysisMapper;
-import com.rianlucassb.liftform.infraestructure.adapter.persistence.repository.VideoAnalysisJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 

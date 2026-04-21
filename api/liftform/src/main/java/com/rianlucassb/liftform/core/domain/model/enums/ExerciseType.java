@@ -7,7 +7,7 @@ public enum ExerciseType {
         try {
             return ExerciseType.valueOf(value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Invalid exercise type: " + value);
+            throw new IllegalArgumentException("Invalid exercise type: " + value);
         }
     }
 }

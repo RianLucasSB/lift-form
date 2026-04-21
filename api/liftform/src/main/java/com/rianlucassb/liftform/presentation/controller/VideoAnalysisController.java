@@ -33,7 +33,7 @@ public class VideoAnalysisController {
     ){
         CreateAnalysisUseCaseInput input = new CreateAnalysisUseCaseInput(
                 userdata.id(),
-                ExerciseType.from(request.exerciseType()),
+                request.exerciseType(),
                 request.fileName()
         );
 

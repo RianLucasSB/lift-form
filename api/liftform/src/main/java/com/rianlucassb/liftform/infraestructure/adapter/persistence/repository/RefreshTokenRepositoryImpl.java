@@ -1,9 +1,8 @@
-package com.rianlucassb.liftform.infraestructure.adapter.persistence.adapter;
+package com.rianlucassb.liftform.infraestructure.adapter.persistence.repository;
 
 import com.rianlucassb.liftform.core.domain.model.RefreshToken;
 import com.rianlucassb.liftform.core.gateway.security.RefreshTokenRepository;
 import com.rianlucassb.liftform.infraestructure.adapter.persistence.mapper.RefreshTokenMapper;
-import com.rianlucassb.liftform.infraestructure.adapter.persistence.repository.RefreshTokenJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

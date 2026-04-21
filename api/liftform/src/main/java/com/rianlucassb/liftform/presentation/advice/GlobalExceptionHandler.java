@@ -38,7 +38,7 @@ public class GlobalExceptionHandler {
                 .toList();
 
         return ResponseEntity
-                .status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponseDTO(errors));
     }
 }
