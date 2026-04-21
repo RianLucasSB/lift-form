@@ -127,6 +127,16 @@ public class RefreshTokenUseCaseImplTest {
     }
 
     @Test
+    @DisplayName("Should throw InvalidRefreshTokenException when refresh token is null")
+    void shouldThrowWhenRefreshTokenIsnull(){
+        Throwable thrown = catchThrowable(
+                () -> refreshTokenUseCase.execute(new RefreshTokenUseCaseInput(null))
+        );
+
+        assertThat(thrown).isInstanceOf(InvalidRefreshTokenException.class);
+    }
+
+    @Test
     @DisplayName("Should throw InvalidRefreshTokenException when refresh token is expired")
     void shouldThrowWhenRefreshTokenIsExpired() {
         RefreshToken expired = buildExpiredRefreshToken();

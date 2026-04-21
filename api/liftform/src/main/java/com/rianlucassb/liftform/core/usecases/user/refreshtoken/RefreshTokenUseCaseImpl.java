@@ -37,6 +37,10 @@ public class RefreshTokenUseCaseImpl implements RefreshTokenUseCase {
 
     @Override
     public RefreshTokenUseCaseOutput execute(RefreshTokenUseCaseInput input) {
+        if(input.refreshToken() == null || input.refreshToken().isBlank()) {
+            throw new InvalidRefreshTokenException("Invalid credentials");
+        }
+
         RefreshToken foundRefreshToken = refreshTokenRepository.findByHashedToken(refreshTokenHasher.hash(input.refreshToken()))
                 .orElseThrow(() -> new InvalidRefreshTokenException("Invalid credentials"));
 
