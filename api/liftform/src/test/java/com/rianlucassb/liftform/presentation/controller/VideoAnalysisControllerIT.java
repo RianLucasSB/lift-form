@@ -62,7 +62,7 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.analysisId").isNotEmpty())
+                .andExpect(jsonPath("$.videoAnalysisId").isNotEmpty())
                 .andExpect(jsonPath("$.uploadUrl").isNotEmpty())
                 .andExpect(jsonPath("$.expiresIn").isNumber())
                 .andReturn();

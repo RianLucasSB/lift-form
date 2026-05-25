@@ -7,6 +7,9 @@ import com.rianlucassb.liftform.core.domain.model.enums.ExerciseType;
 import com.rianlucassb.liftform.core.domain.model.enums.VideoAnalysisStatus;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoAnalysisRepository;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoStorage;
+import com.rianlucassb.liftform.core.gateway.user.UserRepository;
+import com.rianlucassb.liftform.util.TestFixtures;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,28 +19,34 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CreateAnalysisUseCaseImplTest {
 
     @Mock private VideoAnalysisRepository videoAnalysisRepository;
     @Mock private VideoStorage videoStorage;
+    @Mock private UserRepository userRepository;
 
     @InjectMocks
     private CreateAnalysisUseCaseImpl createAnalysisUseCase;
 
+    @BeforeEach
+    public void beforeEach(){
+        lenient().doReturn(Optional.of(TestFixtures.createUser())).when(userRepository).findById(any());
+    }
+
     // ── Happy-path ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Should return a non-null uploadUrl and analysisId when input is valid")
+    @DisplayName("Should return a non-null uploadUrl and videoAnalysisId when input is valid")
     void shouldReturnUploadURLAndAnalysisIDWhenInputIsValid() {
         // Arrange
         var input = createValidInput();
@@ -77,8 +86,8 @@ class CreateAnalysisUseCaseImplTest {
         ArgumentCaptor<VideoAnalysis> captor = ArgumentCaptor.forClass(VideoAnalysis.class);
         verify(videoAnalysisRepository).save(captor.capture());
 
-        assertThat(captor.getValue().userId()).isEqualTo(UUID.fromString(input.userId()));
-        assertThat(captor.getValue().exerciseType()).isEqualTo(input.exerciseType());
+        assertThat(captor.getValue().getUserId()).isEqualTo(UUID.fromString(input.userId()));
+        assertThat(captor.getValue().getExerciseType()).isEqualTo(input.exerciseType());
     }
 
     @Test
@@ -92,7 +101,7 @@ class CreateAnalysisUseCaseImplTest {
         ArgumentCaptor<VideoAnalysis> captor = ArgumentCaptor.forClass(VideoAnalysis.class);
         verify(videoAnalysisRepository).save(captor.capture());
 
-        assertThat(captor.getValue().status()).isEqualTo(VideoAnalysisStatus.CREATED);
+        assertThat(captor.getValue().getStatus()).isEqualTo(VideoAnalysisStatus.CREATED);
     }
 
     @Test
@@ -109,7 +118,7 @@ class CreateAnalysisUseCaseImplTest {
         verify(videoAnalysisRepository).save(entityCaptor.capture());
         verify(videoStorage).generateUploadUrl(keyCaptor.capture(), any(Duration.class));
 
-        assertThat(entityCaptor.getValue().videoS3Key()).isEqualTo(keyCaptor.getValue());
+        assertThat(entityCaptor.getValue().getVideoS3Key()).isEqualTo(keyCaptor.getValue());
     }
 
     @Test
@@ -196,14 +205,16 @@ class CreateAnalysisUseCaseImplTest {
 
     private VideoAnalysis createValidVideoAnalysis() {
         UUID userId = UUID.randomUUID();
-        return new VideoAnalysis(
+        return VideoAnalysis.reconstitute(
                 1L,
                 userId,
                 ExerciseType.SQUAT,
                 "videos/SQUAT/" + userId + "/" + UUID.randomUUID() + ".mp4",
                 VideoAnalysisStatus.CREATED,
                 null,
-                null
+                null,
+                null,
+                new ArrayList<>()
         );
     }
 
