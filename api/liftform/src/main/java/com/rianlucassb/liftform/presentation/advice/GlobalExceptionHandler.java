@@ -2,6 +2,7 @@ package com.rianlucassb.liftform.presentation.advice;
 
 import com.rianlucassb.liftform.core.domain.exception.AlreadyExistsException;
 import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
+import com.rianlucassb.liftform.core.domain.exception.InvalidStatusTransitionException;
 import com.rianlucassb.liftform.presentation.dto.ErrorResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    //TODO: Create a superclass for DomainException and handle them in a single method
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidCredentials(InvalidCredentialsException ex) {
         return ResponseEntity
@@ -40,5 +42,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponseDTO(errors));
+    }
+
+    @ExceptionHandler(InvalidStatusTransitionException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidStatusTransition(InvalidStatusTransitionException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ErrorResponseDTO(List.of(ex.getMessage())));
     }
 }

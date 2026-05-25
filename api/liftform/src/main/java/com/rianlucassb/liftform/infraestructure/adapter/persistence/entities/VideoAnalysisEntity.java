@@ -1,5 +1,6 @@
 package com.rianlucassb.liftform.infraestructure.adapter.persistence.entities;
 
+import com.rianlucassb.liftform.core.domain.model.enums.ExerciseType;
 import com.rianlucassb.liftform.core.domain.model.enums.VideoAnalysisStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -25,8 +26,9 @@ public class VideoAnalysisEntity {
     @Column(name = "USER_ID", nullable = false)
     private UUID userId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "EXERCISE_TYPE", nullable = false, length = 50)
-    private String exerciseType;
+    private ExerciseType exerciseType;
 
     @Column(name = "VIDEO_S3_KEY", nullable = false)
     private String videoS3Key;
@@ -46,18 +48,4 @@ public class VideoAnalysisEntity {
 
     @OneToMany(mappedBy = "analysis", fetch = FetchType.LAZY)
     private List<PipelineErrorEntity> errors;
-
-    @PrePersist
-    private void prePersist() {
-        this.createdAt = Instant.now();
-        this.updatedAt = Instant.now();
-        if (this.status == null) {
-            this.status = VideoAnalysisStatus.CREATED;
-        }
-    }
-
-    @PreUpdate
-    private void preUpdate() {
-        this.updatedAt = Instant.now();
-    }
 }
