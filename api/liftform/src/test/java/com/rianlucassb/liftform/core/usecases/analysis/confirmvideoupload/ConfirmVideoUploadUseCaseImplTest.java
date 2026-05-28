@@ -1,8 +1,8 @@
 package com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload;
 
 
+import com.rianlucassb.liftform.core.domain.exception.EntityNotFoundException;
 import com.rianlucassb.liftform.core.domain.exception.InvalidStatusTransitionException;
-import com.rianlucassb.liftform.core.domain.exception.VideoAnalysisNotFoundException;
 import com.rianlucassb.liftform.core.domain.model.VideoAnalysis;
 import com.rianlucassb.liftform.core.domain.model.enums.ExerciseType;
 import com.rianlucassb.liftform.core.domain.model.enums.VideoAnalysisStatus;
@@ -31,6 +31,8 @@ class ConfirmVideoUploadUseCaseImplTest {
     @InjectMocks
     private ConfirmVideoUploadUseCaseImpl useCase;
 
+    private final UUID USER_ID = UUID.randomUUID();
+
     // ── Happy-path ────────────────────────────────────────────────────────────
 
     @Test
@@ -48,8 +50,8 @@ class ConfirmVideoUploadUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Should throw VideoAnalysisNotFoundException when analysis is not found")
-    void shouldThrowVideoAnalysisNotFoundExceptionWhenAnalysisIsNotFound() {
+    @DisplayName("Should throw EntityNotFoundException when analysis is not found")
+    void shouldThrowEntityNotFoundExceptionWhenAnalysisIsNotFound() {
         // Arrange
         var input = createValidInput();
 
@@ -60,7 +62,7 @@ class ConfirmVideoUploadUseCaseImplTest {
         Throwable thrown = catchThrowable(() -> useCase.execute(input));
 
         // Assert
-        assertThat(thrown).isInstanceOf(VideoAnalysisNotFoundException.class);
+        assertThat(thrown).isInstanceOf(EntityNotFoundException.class);
     }
 
 
@@ -80,16 +82,31 @@ class ConfirmVideoUploadUseCaseImplTest {
         assertThat(thrown).isInstanceOf(InvalidStatusTransitionException.class);
     }
 
+    @Test
+    @DisplayName("Should throw EntityNotFoundException when user is not the owner of the Analysis")
+    void shouldThrowEntityNotFoundExceptionWhenUserIsNotTheOwner() {
+        // Arrange
+        var input = createValidInput();
+
+        // Act
+        doReturn(Optional.of(createVideoAnalysisWithDifferentUserID()))
+                .when(videoAnalysisRepository).findById(input.videoAnalysisId());
+
+        Throwable thrown = catchThrowable(() -> useCase.execute(input));
+
+        // Assert
+        assertThat(thrown).isInstanceOf(EntityNotFoundException.class);
+    }
+
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private VideoAnalysis createValidVideoAnalysis() {
-        UUID userId = UUID.randomUUID();
         return VideoAnalysis.reconstitute(
                 1L,
-                userId,
+                USER_ID,
                 ExerciseType.SQUAT,
-                "videos/SQUAT/" + userId + "/" + UUID.randomUUID() + ".mp4",
+                "videos/SQUAT/" + USER_ID + "/" + UUID.randomUUID() + ".mp4",
                 VideoAnalysisStatus.CREATED,
                 null,
                 null,
@@ -99,13 +116,27 @@ class ConfirmVideoUploadUseCaseImplTest {
     }
 
     private VideoAnalysis createVideoAnalysisWithInvalidStatus() {
+        return VideoAnalysis.reconstitute(
+                1L,
+                USER_ID,
+                ExerciseType.SQUAT,
+                "videos/SQUAT/" + USER_ID + "/" + UUID.randomUUID() + ".mp4",
+                VideoAnalysisStatus.EXPIRED,
+                null,
+                null,
+                null,
+                new ArrayList<>()
+        );
+    }
+
+    private VideoAnalysis createVideoAnalysisWithDifferentUserID() {
         UUID userId = UUID.randomUUID();
         return VideoAnalysis.reconstitute(
                 1L,
                 userId,
                 ExerciseType.SQUAT,
                 "videos/SQUAT/" + userId + "/" + UUID.randomUUID() + ".mp4",
-                VideoAnalysisStatus.EXPIRED,
+                VideoAnalysisStatus.CREATED,
                 null,
                 null,
                 null,
