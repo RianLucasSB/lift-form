@@ -43,8 +43,11 @@ public class VideoAnalysisController {
     }
 
     @PostMapping("/videos/{id}/upload-complete")
-    public ResponseEntity<Void> confirmVideoUpload(@PathVariable("id") Long id){
-        ConfirmVideoUploadUseCaseInput input = new ConfirmVideoUploadUseCaseInput(id);
+    public ResponseEntity<Void> confirmVideoUpload(
+            @PathVariable("id") Long id,
+            @AuthenticationPrincipal JWTUserData userdata
+    ){
+        ConfirmVideoUploadUseCaseInput input = new ConfirmVideoUploadUseCaseInput(id, userdata.id());
         confirmVideoUploadUseCase.execute(input);
         return ResponseEntity.ok().build();
     }

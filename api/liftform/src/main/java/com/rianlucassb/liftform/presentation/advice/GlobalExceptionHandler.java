@@ -1,8 +1,6 @@
 package com.rianlucassb.liftform.presentation.advice;
 
-import com.rianlucassb.liftform.core.domain.exception.AlreadyExistsException;
-import com.rianlucassb.liftform.core.domain.exception.InvalidCredentialsException;
-import com.rianlucassb.liftform.core.domain.exception.InvalidStatusTransitionException;
+import com.rianlucassb.liftform.core.domain.exception.*;
 import com.rianlucassb.liftform.presentation.dto.ErrorResponseDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +46,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDTO> handleInvalidStatusTransition(InvalidStatusTransitionException ex) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
+                .body(new ErrorResponseDTO(List.of(ex.getMessage())));
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleEntityNotFound(EntityNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponseDTO(List.of(ex.getMessage())));
     }
 }
