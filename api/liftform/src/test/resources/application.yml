@@ -9,6 +9,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    addresses: ${amqpURL:amqp://guest:guest@localhost}
 
 security:
   jwt:

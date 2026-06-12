@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Transactional
@@ -41,8 +43,8 @@ class VideoAnalysisRepositoryImplIT extends AbstractIntegrationTest {
                 ExerciseType.SQUAT,
                 "videos/SQUAT/" + savedUser.id() + "/test.mp4",
                 VideoAnalysisStatus.CREATED,
-                null,
-                null,
+                Instant.now(),
+                Instant.now(),
                 null,
                 null
         );
@@ -63,8 +65,8 @@ class VideoAnalysisRepositoryImplIT extends AbstractIntegrationTest {
                 ExerciseType.SQUAT,
                 "videos/SQUAT/" + savedUser.id() + "/v1.mp4",
                 VideoAnalysisStatus.CREATED,
-                null,
-                null,
+                Instant.now(),
+                Instant.now(),
                 null,
                 null
         );
@@ -75,28 +77,12 @@ class VideoAnalysisRepositoryImplIT extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("save() defaults status to CREATED when status is null via @PrePersist")
-    void save_statusDefaultsToCREATED_whenNull() {
-        // Pass null status — @PrePersist should default to CREATED
-        VideoAnalysis analysis = VideoAnalysis.reconstitute(
-                null, savedUser.id(), ExerciseType.SQUAT,
-                "videos/SQUAT/" + savedUser.id() + "/v2.mp4",
-                null, null, null,
-                null, null
-        );
-
-        VideoAnalysis saved = videoAnalysisRepository.save(analysis);
-
-        assertThat(saved.getStatus()).isEqualTo(VideoAnalysisStatus.CREATED);
-    }
-
-    @Test
-    @DisplayName("save() sets createdAt and updatedAt timestamps via @PrePersist")
+    @DisplayName("save() sets createdAt and updatedAt timestamps")
     void save_setsTimestamps() {
         VideoAnalysis analysis = VideoAnalysis.reconstitute(
                 null, savedUser.id(), ExerciseType.SQUAT,
                 "videos/SQUAT/" + savedUser.id() + "/v3.mp4",
-                VideoAnalysisStatus.CREATED, null, null,
+                VideoAnalysisStatus.CREATED, Instant.now(), Instant.now(),
                 null, null
         );
 

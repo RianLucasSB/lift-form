@@ -146,7 +146,8 @@ class ConfirmVideoUploadUseCaseImplTest {
 
     private ConfirmVideoUploadUseCaseInput createValidInput() {
         return new ConfirmVideoUploadUseCaseInput(
-                1L
+                1L,
+                USER_ID.toString()
         );
     }
 }

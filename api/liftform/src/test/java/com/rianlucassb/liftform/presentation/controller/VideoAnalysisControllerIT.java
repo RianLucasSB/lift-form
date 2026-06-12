@@ -28,6 +28,7 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
 
     private static final String CREATE_URL   = "/api/v1/analysis/create";
     private static final String REGISTER_URL = "/api/v1/auth/register";
+    private static final String CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL   = "/api/v1/analysis/videos/%d/upload-complete";
 
     private String accessToken;
 
@@ -62,7 +63,7 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.videoAnalysisId").isNotEmpty())
+                .andExpect(jsonPath("$.analysisId").isNotEmpty())
                 .andExpect(jsonPath("$.uploadUrl").isNotEmpty())
                 .andExpect(jsonPath("$.expiresIn").isNumber())
                 .andReturn();
@@ -105,6 +106,45 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /analysis/videos/{id}/upload-complete returns 200 when authenticated and video exists")
+    void confirmVideoUpload_authenticatedUser_existingCreatedAnalysis_returns200() throws Exception {
+        var body = Map.of("exerciseType", "SQUAT", "fileName", "my_squat.mp4");
+
+        MvcResult resultCreateAnalysis = mockMvc.perform(post(CREATE_URL)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body)))
+                .andReturn();
+
+        Map<?, ?> response = objectMapper.readValue(resultCreateAnalysis.getResponse().getContentAsString(), Map.class);
+        Long analysisId = ((Number) response.get("analysisId")).longValue();
+
+        mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(analysisId))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /analysis/videos/{id}/upload-complete returns 403 for invalid JWT")
+    void confirmVideoUpload_invalidToken_returns403() throws Exception {
+
+        mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(1L))
+                        .header("Authorization", "Bearer invalid.jwt.token")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /analysis/videos/{id}/upload-complete returns 404 for invalid analysis ID")
+    void confirmVideoUpload_invalidAnalysisId_returns409() throws Exception {
+        mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(1L))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
     }
 }
 

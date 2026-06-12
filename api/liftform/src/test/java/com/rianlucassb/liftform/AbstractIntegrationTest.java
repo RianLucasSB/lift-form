@@ -1,7 +1,7 @@
 package com.rianlucassb.liftform;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rianlucassb.liftform.infraestructure.config.S3TestConfig;
+import com.rianlucassb.liftform.infraestructure.config.TestJacksonConfig;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -13,6 +13,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
@@ -20,7 +21,7 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("integration")
-@Import({AbstractIntegrationTest.ContainerConfig.class, S3TestConfig.class})
+@Import({AbstractIntegrationTest.ContainerConfig.class, S3TestConfig.class, TestJacksonConfig.class})
 public abstract class AbstractIntegrationTest {
 
     @LocalServerPort
@@ -35,9 +36,14 @@ public abstract class AbstractIntegrationTest {
             new LocalStackContainer(DockerImageName.parse("localstack/localstack:3"))
                     .withServices(S3);
 
+    static final RabbitMQContainer rabbit =
+            new RabbitMQContainer(DockerImageName.parse("rabbitmq:4-management-alpine"));
+
+
     static {
         postgres.start();
         localStack.start();
+        rabbit.start();
     }
 
     @DynamicPropertySource
@@ -48,6 +54,7 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("aws.endpoint", () -> localStack.getEndpointOverride(S3).toString());
         registry.add("aws.region", localStack::getRegion);
+        registry.add("spring.rabbitmq.addresses", rabbit::getAmqpUrl);
     }
 
     @TestConfiguration
@@ -55,11 +62,6 @@ public abstract class AbstractIntegrationTest {
         @Bean
         public LocalStackContainer localStackContainer() {
             return localStack;
-        }
-
-        @Bean
-        public ObjectMapper objectMapper() {
-            return new ObjectMapper();
         }
     }
 }
