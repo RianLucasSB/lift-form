@@ -62,7 +62,7 @@ class ConfirmVideoUploadUseCaseImplTest {
         Throwable thrown = catchThrowable(() -> useCase.execute(input));
 
         // Assert
-        assertThat(thrown).isInstanceOf(NullPointerException.class);
+        assertThat(thrown).isInstanceOf(EntityNotFoundException.class);
     }
 
 
