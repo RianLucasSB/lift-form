@@ -3,12 +3,16 @@ name: CI
 on:
   push:
     branches: [ main ]
+  paths:
+    - 'api/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'api/**'
 
 jobs:
-  unit:
-    name: Unit Tests
+  api-unit:
+    name: API Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +34,12 @@ jobs:
 
       - name: Run unit tests
         run: ./mvnw test
+        working-directory: api/liftform
 
-  integration:
+  api-integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: unit
+    needs: api-unit
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -56,5 +61,6 @@ jobs:
 
       - name: Run integration tests
         run: ./mvnw failsafe:integration-test failsafe:verify
+        working-directory: api/liftform
         env:
           DOCKER_API_VERSION: '1.44'
