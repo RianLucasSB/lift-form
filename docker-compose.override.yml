@@ -1,0 +1,14 @@
+services:
+  pose_feature_extractor_worker:
+    build: ./workers/pose_feature_extractor_worker
+    depends_on: 
+      - rabbitmq
+      - minio-setup
+  spring_api:
+    build: ./api/liftform
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+    depends_on: 
+      - postgres
+      - rabbitmq
+      - minio-setup

@@ -1,0 +1,6 @@
+spring:
+  config:
+    import: aws-secretsmanager:/liftform/prod
+app:
+  cookie:
+    secure: true

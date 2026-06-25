@@ -29,6 +29,12 @@ public class S3Config {
     @Value("${aws.endpoint}")
     private String endpoint;
 
+    @Value("${aws.credentials.access-key:minioadmin}")
+    private String accessKey;
+
+    @Value("${aws.credentials.secret-key:minioadmin}")
+    private String secretKey;
+
     @Bean
     @Profile("local")
     public S3Client s3ClientLocal() {
@@ -36,7 +42,7 @@ public class S3Config {
                 .region(Region.of(region))
                 .endpointOverride(URI.create(endpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create("test", "test") // LocalStack accepts anything
+                        AwsBasicCredentials.create(accessKey, secretKey)
                 ))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(true)

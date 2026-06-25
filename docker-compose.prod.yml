@@ -1,0 +1,7 @@
+services:
+  spring_api:
+    image: your-ecr/liftform-api:latest
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+  pose_feature_extractor_worker:
+    image: your-ecr/liftform-api:latest

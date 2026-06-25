@@ -1,7 +1,6 @@
 package com.rianlucassb.liftform;
 
 import com.rianlucassb.liftform.infraestructure.config.S3TestConfig;
-import com.rianlucassb.liftform.infraestructure.config.TestJacksonConfig;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -21,7 +20,7 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("integration")
-@Import({AbstractIntegrationTest.ContainerConfig.class, S3TestConfig.class, TestJacksonConfig.class})
+@Import({AbstractIntegrationTest.ContainerConfig.class, S3TestConfig.class})
 public abstract class AbstractIntegrationTest {
 
     @LocalServerPort

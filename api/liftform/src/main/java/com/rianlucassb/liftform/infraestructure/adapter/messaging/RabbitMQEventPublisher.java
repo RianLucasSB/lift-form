@@ -29,7 +29,7 @@ public class RabbitMQEventPublisher implements EventPublisher {
 
             rabbitTemplate.convertAndSend(
                 RabbitMQConfig.EXCHANGE,
-                event.getEventType(),   // routing key
+                event.getEventType(),
                 payload,
                 message -> {
                     message.getMessageProperties().setMessageId(event.getEventId().toString());
