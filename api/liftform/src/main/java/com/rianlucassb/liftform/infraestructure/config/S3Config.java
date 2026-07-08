@@ -29,6 +29,9 @@ public class S3Config {
     @Value("${aws.endpoint}")
     private String endpoint;
 
+    @Value("${aws.presigned-endpoint:${aws.endpoint}}")
+    private String presignedEndpoint;
+
     @Value("${aws.credentials.access-key:minioadmin}")
     private String accessKey;
 
@@ -64,9 +67,9 @@ public class S3Config {
     public S3Presigner s3PresignerLocal() {
         return S3Presigner.builder()
             .region(Region.of(region))
-            .endpointOverride(URI.create(endpoint))
+            .endpointOverride(URI.create(presignedEndpoint))
             .credentialsProvider(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create("test", "test")
+                    AwsBasicCredentials.create(accessKey, secretKey)
             ))
             .serviceConfiguration(S3Configuration.builder()
                 .pathStyleAccessEnabled(true)

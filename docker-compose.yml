@@ -8,6 +8,7 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+
   minio-setup:
     image: minio/mc
     depends_on:
@@ -19,8 +20,14 @@ services:
       mc mb local/liftform-bucket --ignore-existing;
       exit 0;
       "
+
   postgres:
-    image: postgres:latest
+    image: postgres:18-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -29,12 +36,18 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+
   rabbitmq:
     image: rabbitmq:management
-    container_name: 'rabbitmq'
+    container_name: rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "5672:5672"
       - "15672:15672"
-  
+
 volumes:
   postgres_data:

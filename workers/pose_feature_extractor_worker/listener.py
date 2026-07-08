@@ -20,6 +20,9 @@ DLX      = "video-analysis.dlx"
 
 MAX_RETRIES = 3
 
+RECONNECT_DELAY = 2
+MAX_RECONNECT_DELAY = 30
+
 
 def get_death_count(properties) -> int:
     headers = properties.headers or {}
@@ -66,11 +69,7 @@ def callback(ch, method, properties, body):
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
 
-def main():
-    print("Connecting to RabbitMQ...")
-    connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
-    channel = connection.channel()
-
+def declare_topology(channel):
     channel.exchange_declare(exchange=EXCHANGE, exchange_type="direct", durable=True)
     channel.exchange_declare(exchange=DLX,      exchange_type="direct", durable=True)
 
@@ -87,11 +86,41 @@ def main():
     channel.queue_bind(exchange=EXCHANGE, queue=QUEUE, routing_key=ROUTING)
     channel.queue_bind(exchange=DLX,      queue=DLQ,  routing_key=DLQ)
 
-    channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=QUEUE, on_message_callback=callback)
 
-    print("Waiting for messages. To exit press CTRL+C")
-    channel.start_consuming()
+def main():
+    delay = RECONNECT_DELAY
+
+    while True:
+        try:
+            print("Connecting to RabbitMQ URL: " + RABBITMQ_URL)
+            connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+        except (pika.exceptions.AMQPConnectionError, OSError) as e:
+            print(f"Could not connect to RabbitMQ ({e}). Retrying in {delay}s...")
+            time.sleep(delay)
+            delay = min(delay * 2, MAX_RECONNECT_DELAY)
+            continue
+
+        delay = RECONNECT_DELAY
+
+        try:
+            channel = connection.channel()
+            declare_topology(channel)
+            channel.basic_qos(prefetch_count=1)
+            channel.basic_consume(queue=QUEUE, on_message_callback=callback)
+
+            print("Waiting for messages. To exit press CTRL+C")
+            channel.start_consuming()
+            break
+        except (pika.exceptions.AMQPConnectionError, OSError) as e:
+            print(f"Lost connection to RabbitMQ ({e}). Reconnecting in {delay}s...")
+            time.sleep(delay)
+            delay = min(delay * 2, MAX_RECONNECT_DELAY)
+        except KeyboardInterrupt:
+            print("Interrupted, shutting down")
+            break
+        finally:
+            if connection.is_open:
+                connection.close()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,346 @@
+{
+  "info": {
+    "_postman_id": "bbded98b-efa6-4cee-a180-f2c42041ee42",
+    "name": "Liftform",
+    "description": "Endpoints for the Liftform Spring Boot API. Suggested run order: Auth > Register (or Login) -> Video Analysis > Create Analysis -> Video Analysis > Upload Video to S3 (Presigned URL) -> Video Analysis > Confirm Upload Complete. The `accessToken`, `analysisId` and `uploadUrl` collection variables are populated automatically by each request's test script, so no manual copy/paste is needed between requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"username\": \"johndoe\",\n  \"password\": \"SuperSecret123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Creates a new user and logs them in. Sets an httpOnly `refresh_token` cookie (scoped to /api/v1/auth/refresh) and returns an access token. Password must be 8-72 characters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.accessToken) {",
+                  "        pm.collectionVariables.set(\"accessToken\", json.accessToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"john.doe@example.com\",\n  \"password\": \"SuperSecret123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates an existing user. `login` accepts either the account's email or username. Sets an httpOnly `refresh_token` cookie and returns a fresh access token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.accessToken) {",
+                  "        pm.collectionVariables.set(\"accessToken\", json.accessToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Exchanges the `refresh_token` cookie (set by Login/Register) for a new access token, and rotates the refresh token cookie. Requires Postman's cookie jar to have a `refresh_token` cookie for this host from a prior Login/Register call in the same session -- enable 'Automatically follow redirects' and cookie storage in Postman settings if this returns 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.accessToken) {",
+                  "        pm.collectionVariables.set(\"accessToken\", json.accessToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "description": "Registration, login and token refresh. No Authorization header is required for these endpoints (they are permitAll in SecurityConfig)."
+    },
+    {
+      "name": "Video Analysis",
+      "item": [
+        {
+          "name": "Create Analysis",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"squat-attempt-1.mp4\",\n  \"exerciseType\": \"SQUAT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analysis/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analysis",
+                "create"
+              ]
+            },
+            "description": "Creates a VideoAnalysis record in CREATED status and returns a presigned S3/MinIO upload URL (valid 15 minutes). `exerciseType` currently only supports \"SQUAT\". Requires a Bearer access token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.analysisId) {",
+                  "        pm.collectionVariables.set(\"analysisId\", json.analysisId);",
+                  "    }",
+                  "    if (json.uploadUrl) {",
+                  "        pm.collectionVariables.set(\"uploadUrl\", json.uploadUrl);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Upload Video to S3 (Presigned URL)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "video/mp4"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {}
+            },
+            "url": {
+              "raw": "{{uploadUrl}}",
+              "host": [
+                "{{uploadUrl}}"
+              ]
+            },
+            "description": "Uploads the actual video file directly to S3/MinIO using the presigned URL returned by 'Create Analysis'. This does NOT go through the Spring API and needs no Authorization header -- the presigned URL itself grants access. In Postman, open the Body tab and select a local .mp4 file before sending (binary file selection can't be pre-filled from a collection export). Against the local docker-compose stack, `uploadUrl` will point at `http://minio:9000/...`, which is only resolvable from other containers -- replace the host with `http://localhost:9000/...` (same path/query) when calling it from outside Docker."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Upload Complete",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analysis/videos/{{analysisId}}/upload-complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "analysis",
+                "videos",
+                "{{analysisId}}",
+                "upload-complete"
+              ]
+            },
+            "description": "Marks the VideoAnalysis as UPLOADED and publishes a `VideoAnalysisUploaded` event to RabbitMQ, which the pose_feature_extractor_worker consumes to start processing. Requires a Bearer access token belonging to the same user that created the analysis."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "description": "The full video-upload-and-analysis flow. All requests except the direct-to-storage upload require the Bearer access token obtained from Auth > Login or Auth > Register."
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "analysisId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "uploadUrl",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
