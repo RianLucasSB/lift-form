@@ -31,7 +31,7 @@ public class ConfirmVideoUploadUseCaseImpl implements ConfirmVideoUploadUseCase 
 
         videoAnalysis.confirmUpload();
 
-        ConfirmVideoUploadedEvent event = new ConfirmVideoUploadedEvent(input.videoAnalysisId());
+        ConfirmVideoUploadedEvent event = new ConfirmVideoUploadedEvent(input.videoAnalysisId(), videoAnalysis.getVideoS3Key());
 
         eventPublisher.publish(event);
     }

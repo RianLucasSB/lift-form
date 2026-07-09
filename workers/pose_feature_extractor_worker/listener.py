@@ -24,14 +24,6 @@ RECONNECT_DELAY = 2
 MAX_RECONNECT_DELAY = 30
 
 
-def get_death_count(properties) -> int:
-    headers = properties.headers or {}
-    x_death = headers.get("x-death", [])
-    if x_death:
-        return int(x_death[0].get("count", 0))
-    return 0
-
-
 def process_message(body: dict):
     video_analysis_id = body["videoAnalysisId"]
     s3_key = body["s3Key"]
@@ -49,24 +41,24 @@ def process_message(body: dict):
 
 
 def callback(ch, method, properties, body):
-    try:
-        data = json.loads(body)
-        process_message(data)
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-        print("Message acknowledged successfully")
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            data = json.loads(body)
+            process_message(data)
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            print("Message acknowledged successfully")
+            return
+        except Exception as e:
+            print(f"Error processing message (attempt {attempt}/{MAX_RETRIES}): {e}")
 
-    except Exception as e:
-        retry_count = get_death_count(properties)
-        print(f"Error processing message (attempt {retry_count + 1}/{MAX_RETRIES}): {e}")
+            if attempt >= MAX_RETRIES:
+                print("Max retries reached, sending to DLQ")
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+                return
 
-        if retry_count >= MAX_RETRIES:
-            print("Max retries reached, sending to DLQ")
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-        else:
-            delay = (2 ** retry_count)
+            delay = 2 ** (attempt - 1)
             print(f"Retrying in {delay}s...")
             time.sleep(delay)
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
 
 def declare_topology(channel):
