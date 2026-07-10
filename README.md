@@ -7,6 +7,10 @@ and turned into actionable feedback.
 The system is a polyglot monorepo made of independent services that communicate over **RabbitMQ** (events) and
 **S3-compatible object storage** (video files), so each part can be deployed, scaled, and iterated on independently.
 
+## System Overall Architecture
+
+![alt text](image.png)
+
 ## Services
 
 ### `api/liftform` — REST API
@@ -43,7 +47,7 @@ Today this is a library, not a consumer — there is no listener wired up to inv
 for it to become the second stage of the pipeline (consuming a "features extracted" event and publishing a
 "score computed" event), but that integration hasn't been built yet.
 
-## Architecture
+## API Architecture
 
 The API follows **Clean Architecture** with some **DDD** principles, structured so that the domain and business
 rules never depend on frameworks or infrastructure:
