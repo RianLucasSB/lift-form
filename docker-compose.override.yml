@@ -7,6 +7,12 @@ services:
       minio-setup:
         condition: service_completed_successfully
 
+  score_analyzer_worker:
+    build: ./workers/score_analyzer_worker
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   spring_api:
     build: ./api/liftform
     environment:

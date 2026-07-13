@@ -79,6 +79,20 @@ public class VideoAnalysis {
         this.updatedAt = Instant.now();
     }
 
+    public void markCompleted(AnalysisResult result) {
+        validateTransition(VideoAnalysisStatus.UPLOADED);
+        this.result = result;
+        this.status = VideoAnalysisStatus.COMPLETED;
+        this.updatedAt = Instant.now();
+    }
+
+    public void recordFailure(PipelineError error) {
+        validateTransition(VideoAnalysisStatus.UPLOADED);
+        this.errors.add(error);
+        this.status = VideoAnalysisStatus.FAILED;
+        this.updatedAt = Instant.now();
+    }
+
     private void validateTransition(VideoAnalysisStatus expected) {
         if (this.status != expected) {
             throw new InvalidStatusTransitionException(

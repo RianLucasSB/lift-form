@@ -21,7 +21,7 @@ public class RabbitMQEventPublisher implements EventPublisher {
     public void publish(DomainEvent event) {
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.EXCHANGE,
-            RabbitMQConfig.ROUTING,
+            RabbitMQConfig.EXTRACTION_ROUTING_KEY,
             event,
             message -> {
                 message.getMessageProperties().setMessageId(event.getEventId().toString());

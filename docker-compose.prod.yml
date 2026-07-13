@@ -5,3 +5,5 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
   pose_feature_extractor_worker:
     image: your-ecr/liftform-api:latest
+  score_analyzer_worker:
+    image: your-ecr/liftform-score-analyzer-worker:latest

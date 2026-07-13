@@ -43,9 +43,9 @@ public class VideoAnalysisEntity {
     @Column(name = "UPDATED_AT", nullable = false)
     private Instant updatedAt;
 
-    @OneToOne(mappedBy = "analysis", fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "analysis", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private AnalysisResultEntity result;
 
-    @OneToMany(mappedBy = "analysis", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "analysis", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<PipelineErrorEntity> errors;
 }

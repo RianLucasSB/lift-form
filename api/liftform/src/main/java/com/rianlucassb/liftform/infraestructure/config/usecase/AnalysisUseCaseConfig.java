@@ -8,8 +8,14 @@ import com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload.Confir
 import com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload.ConfirmVideoUploadUseCaseImpl;
 import com.rianlucassb.liftform.core.usecases.analysis.create.CreateAnalysisUseCase;
 import com.rianlucassb.liftform.core.usecases.analysis.create.CreateAnalysisUseCaseImpl;
+import com.rianlucassb.liftform.core.usecases.analysis.recorderror.RecordPipelineErrorUseCase;
+import com.rianlucassb.liftform.core.usecases.analysis.recorderror.RecordPipelineErrorUseCaseImpl;
+import com.rianlucassb.liftform.core.usecases.analysis.recordresult.RecordAnalysisResultUseCase;
+import com.rianlucassb.liftform.core.usecases.analysis.recordresult.RecordAnalysisResultUseCaseImpl;
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysis.TransactionalConfirmVideoUploadUsecase;
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysis.TransactionalCreateAnalysisUsecase;
+import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysis.TransactionalRecordAnalysisResultUsecase;
+import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysis.TransactionalRecordPipelineErrorUsecase;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,5 +56,35 @@ public class AnalysisUseCaseConfig {
             @Qualifier("confirmVideoUploadImpl") ConfirmVideoUploadUseCase confirmVideoUploadUseCase
     ) {
         return new TransactionalConfirmVideoUploadUsecase(confirmVideoUploadUseCase);
+    }
+
+    @Bean("recordAnalysisResultImpl")
+    public RecordAnalysisResultUseCase recordAnalysisResultUseCase(
+            VideoAnalysisRepository videoAnalysisRepository
+    ) {
+        return new RecordAnalysisResultUseCaseImpl(videoAnalysisRepository);
+    }
+
+    @Bean
+    @Primary
+    public RecordAnalysisResultUseCase transactionalRecordAnalysisResultUseCase(
+            @Qualifier("recordAnalysisResultImpl") RecordAnalysisResultUseCase recordAnalysisResultUseCase
+    ) {
+        return new TransactionalRecordAnalysisResultUsecase(recordAnalysisResultUseCase);
+    }
+
+    @Bean("recordPipelineErrorImpl")
+    public RecordPipelineErrorUseCase recordPipelineErrorUseCase(
+            VideoAnalysisRepository videoAnalysisRepository
+    ) {
+        return new RecordPipelineErrorUseCaseImpl(videoAnalysisRepository);
+    }
+
+    @Bean
+    @Primary
+    public RecordPipelineErrorUseCase transactionalRecordPipelineErrorUseCase(
+            @Qualifier("recordPipelineErrorImpl") RecordPipelineErrorUseCase recordPipelineErrorUseCase
+    ) {
+        return new TransactionalRecordPipelineErrorUsecase(recordPipelineErrorUseCase);
     }
 }

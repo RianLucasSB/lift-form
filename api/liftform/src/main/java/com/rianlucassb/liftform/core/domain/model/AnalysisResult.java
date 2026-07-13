@@ -15,4 +15,23 @@ public record AnalysisResult(
     Map<String, Object> feedback,
     Map<String, Object> rawFeatures,
     Instant scoredAt
-) {}
+) {
+    public static AnalysisResult score(
+            Long analysisId,
+            String modelVersion,
+            BigDecimal overallScore,
+            Map<String, Object> feedback,
+            Map<String, Object> rawFeatures
+    ) {
+        return new AnalysisResult(
+                null,
+                analysisId,
+                modelVersion,
+                overallScore,
+                Classification.fromScore(overallScore),
+                feedback,
+                rawFeatures,
+                null
+        );
+    }
+}
