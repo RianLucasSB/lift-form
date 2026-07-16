@@ -22,6 +22,9 @@ and is the only service that talks to clients directly.
 - Tracks the lifecycle of a video analysis (`CREATED → UPLOADED → PROCESSING → COMPLETED`, or `FAILED`/`EXPIRED`).
 - Publishes a `VideoAnalysisUploaded` event to RabbitMQ once a client confirms an upload, which is what kicks off
   processing on the worker side.
+- Also the other end of the pipeline: consumes the score analyzer worker's result event and both workers' error
+  events, persisting the outcome and completing the lifecycle — see the "Video analysis lifecycle & messaging"
+  section in [`CLAUDE.md`](CLAUDE.md) for the full request/event flow.
 - Stateless JWT auth, with refresh tokens stored hashed in Postgres.
 - Built with hexagonal / Clean Architecture — see [Architecture](#architecture) below.
 
@@ -32,20 +35,25 @@ estimation over it to extract rep-level features (angles, tempo, depth, smoothne
 
 - Rep detection is a hysteresis state machine over the knee-angle signal, with the raw signal smoothed
   (Savitzky-Golay) before detection to reduce landmark noise.
-- Failed messages are retried up to 3 times with exponential backoff (`nack` + requeue) before being routed to a
-  dead-letter queue, so a bad video or a transient MediaPipe failure doesn't block the queue.
+- On success, publishes a "features extracted" event that triggers the score analyzer worker — this is the link
+  between the two Python workers.
+- Failed messages are retried up to 3 times with exponential backoff, then the worker itself publishes a
+  structured error payload to a dead-letter queue (rather than relying on a bare `nack`), so the API can turn it
+  into a queryable error record instead of just an opaque dropped message.
 - This is the service expected to carry the most load (video download + CV inference per message), so it's built to
   be horizontally scaled — see [Scaling](#scaling) below.
 
-### `workers/score_analyzer_worker` — score analyzer (not yet wired into a running service)
+### `workers/score_analyzer_worker` — score analyzer worker
 
-Python package containing model training and inference code. Takes the aggregated feature dict produced by the
-extractor worker and scores it with a pre-trained model, producing a 0–1 form score, a qualitative label, and
-rule-based per-dimension feedback (depth, back angle, tempo, lockout, range of motion, consistency).
+Python. Consumes the extractor worker's "features extracted" event off RabbitMQ, scores the feature dict with a
+pre-trained model, producing a 0–1 form score, a qualitative label, and rule-based per-dimension feedback (depth,
+back angle, tempo, lockout, range of motion, consistency), then publishes the result for the API to persist.
 
-Today this is a library, not a consumer — there is no listener wired up to invoke it automatically. The intent is
-for it to become the second stage of the pipeline (consuming a "features extracted" event and publishing a
-"score computed" event), but that integration hasn't been built yet.
+- Same retry/DLQ shape as the extractor worker (3 retries with exponential backoff, then an explicit structured
+  error published to its own dedicated dead-letter queue) — see [Key design decisions](#key-design-decisions).
+- Deliberately doesn't compute the final `GOOD`/`FAIR`/`POOR` classification itself — it publishes the raw score
+  and lets the API derive that from a single, domain-owned rule (see below).
+- Never touches S3 — the message it consumes already carries the extracted feature dict, no video download needed.
 
 ## API Architecture
 
@@ -54,7 +62,10 @@ rules never depend on frameworks or infrastructure:
 
 - **`core/domain`** — framework-free domain model. `VideoAnalysis` is a rich domain object (not an anemic
   DTO/entity): it's created via named factory methods (`initialize`, `reconstitute`) and its own state transitions
-  are validated internally, rather than left to callers to get right.
+  are validated internally, rather than left to callers to get right. It's also the sole aggregate root for its
+  results and errors — `AnalysisResult`/`PipelineError` are only ever persisted by saving the `VideoAnalysis` they
+  belong to (JPA cascade does the rest), not through separate repositories, keeping the aggregate boundary real
+  rather than just conceptual.
 - **`core/gateway`** — interfaces (ports) the domain/use-case layer depends on for persistence, storage, eventing,
   and security. No Spring, JPA, or AMQP types leak into this layer.
 - **`core/usecases`** — one use case per folder, each a plain class with constructor-injected gateways and zero
@@ -72,18 +83,31 @@ transition) are testable and reviewable without spinning up Spring, a database, 
 
 **Why RabbitMQ.** Chosen partly to learn it, but it's also a deliberate fit for this pipeline: we want direct
 control over queue topology, retry/backoff behavior, and dead-lettering, rather than relying on a managed
-pub/sub abstraction that hides those knobs. The API and the extractor worker each declare the same
-exchange/queue/DLQ topology independently (they don't declare idempotently against each other), so a topology
-change has to be made on both sides at once.
+pub/sub abstraction that hides those knobs. All three services declare their own corner of a single shared
+exchange, using a symmetric naming convention per pipeline stage (extraction / scoring / results) — nothing
+declares idempotently against another service's declaration, so a topology change has to be made everywhere that
+segment is touched.
+
+**Why a dedicated dead-letter queue per pipeline stage, not one shared DLQ.** A shared DLQ across both workers
+would mix payload shapes from different producers, including raw, natively-dead-lettered messages that never went
+through either worker's own structured-error path (e.g. a crash mid-retry). The API can't reliably tell those
+apart. Each stage gets its own DLQ instead, so the one listener that consumes it only ever has to handle one
+producer's contract — with defensive parsing still in place for the crash-before-publish edge case.
 
 **Why separate services instead of a single deployable.** The pose extraction worker is expected to be the
-bottleneck — it does a video download plus CV inference per message, while the API and the (future) score analyzer
-are comparatively cheap. Splitting them lets the extractor worker scale independently: today that means running
+bottleneck — it does a video download plus CV inference per message, while the API and the score analyzer are
+comparatively cheap. Splitting them lets the extractor worker scale independently: today that means running
 multiple worker containers side by side; later it can mean a proper autoscaled worker fleet, without needing to
 scale the API or database alongside it.
 
 **Why direct-to-S3 upload.** The API issues a short-lived presigned URL and never proxies the video bytes itself,
 so large video uploads don't tie up API request threads or bandwidth.
+
+**Why the score→classification mapping lives in Java, not Python.** The score analyzer worker's model produces a
+finer-grained qualitative label, but the database constrains the persisted classification to three values
+(`GOOD`/`FAIR`/`POOR`). Rather than have the Python worker hardcode a second, informal mapping and ship it over the
+wire, the worker publishes the raw score only, and a domain rule on the Java side (`Classification.fromScore`)
+derives the classification — one source of truth for "what counts as a good score," not two that can drift apart.
 
 **Why Clean Architecture / DDD for the API.** With domain logic and use cases decoupled from Spring/JPA/AMQP,
 the video-analysis state machine and business rules can be unit tested with plain mocks, and infrastructure choices
@@ -140,6 +164,7 @@ automatically by `docker compose`):
 | `minio` / `minio-setup`         | S3-compatible object storage; bucket auto-created  | `9000`, `9001`      |
 | `spring_api`                    | The REST API                                       | `8080`              |
 | `pose_feature_extractor_worker` | Consumes upload events, runs pose extraction       | —                   |
+| `score_analyzer_worker`         | Consumes extracted features, runs scoring          | —                   |
 
 RabbitMQ management UI: http://localhost:15672 (`guest`/`guest`). MinIO console: http://localhost:9001
 (`minioadmin`/`minioadmin`).
@@ -180,17 +205,24 @@ python listener.py
 Requires `RABBITMQ_URL` and AWS/S3 env vars (see `.env` in that directory) — against the local dev stack these point
 at the `minio` and `rabbitmq` docker-compose services.
 
-### `score_analyzer_worker`
+### Running the score analyzer worker standalone
 
-Not runnable as a service yet — it's a library today (see [above](#workersscore_analyzer_worker--score-analyzer-not-yet-wired-into-a-running-service)).
-It can be exercised directly via its `inference`/`train` modules under `workers/score_analyzer_worker/`.
+```bash
+cd workers/score_analyzer_worker
+pip install -r requirements.txt
+python listener.py
+```
+
+Requires `RABBITMQ_URL` and `MODEL_VERSION` (see `.env` in that directory) — no S3/AWS vars needed, this worker
+never touches object storage. Its `inference`/`train` modules can also be exercised directly as a library
+(`SquatScorePredictor` in `inference/squat_predictor.py`) independent of the RabbitMQ listener.
 
 ## Repository layout
 
 ```
 api/liftform/                      # Spring Boot REST API
 workers/pose_feature_extractor_worker/  # RabbitMQ consumer + MediaPipe pose extraction
-workers/score_analyzer_worker/     # Feature scoring model + inference (library, not yet a service)
+workers/score_analyzer_worker/     # RabbitMQ consumer + feature scoring model/inference
 docker-compose.yml                 # Base infra: postgres, rabbitmq, minio
 docker-compose.override.yml        # App services for local dev (auto-loaded alongside docker-compose.yml)
 docker-compose.prod.yml            # Prod-style compose, images from ECR

@@ -8,6 +8,10 @@ import com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload.Confir
 import com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload.ConfirmVideoUploadUseCaseImpl;
 import com.rianlucassb.liftform.core.usecases.analysis.create.CreateAnalysisUseCase;
 import com.rianlucassb.liftform.core.usecases.analysis.create.CreateAnalysisUseCaseImpl;
+import com.rianlucassb.liftform.core.usecases.analysis.getanalysis.GetAnalysisUseCase;
+import com.rianlucassb.liftform.core.usecases.analysis.getanalysis.GetAnalysisUseCaseImpl;
+import com.rianlucassb.liftform.core.usecases.analysis.listanalyses.ListAnalysesUseCase;
+import com.rianlucassb.liftform.core.usecases.analysis.listanalyses.ListAnalysesUseCaseImpl;
 import com.rianlucassb.liftform.core.usecases.analysis.recorderror.RecordPipelineErrorUseCase;
 import com.rianlucassb.liftform.core.usecases.analysis.recorderror.RecordPipelineErrorUseCaseImpl;
 import com.rianlucassb.liftform.core.usecases.analysis.recordresult.RecordAnalysisResultUseCase;
@@ -71,6 +75,20 @@ public class AnalysisUseCaseConfig {
             @Qualifier("recordAnalysisResultImpl") RecordAnalysisResultUseCase recordAnalysisResultUseCase
     ) {
         return new TransactionalRecordAnalysisResultUsecase(recordAnalysisResultUseCase);
+    }
+
+    @Bean
+    public GetAnalysisUseCase getAnalysisUseCase(
+            VideoAnalysisRepository videoAnalysisRepository
+    ) {
+        return new GetAnalysisUseCaseImpl(videoAnalysisRepository);
+    }
+
+    @Bean
+    public ListAnalysesUseCase listAnalysesUseCase(
+            VideoAnalysisRepository videoAnalysisRepository
+    ) {
+        return new ListAnalysesUseCaseImpl(videoAnalysisRepository);
     }
 
     @Bean("recordPipelineErrorImpl")
