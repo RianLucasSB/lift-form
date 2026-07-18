@@ -55,6 +55,20 @@ back angle, tempo, lockout, range of motion, consistency), then publishes the re
   and lets the API derive that from a single, domain-owned rule (see below).
 - Never touches S3 — the message it consumes already carries the extracted feature dict, no video download needed.
 
+### `frontend/` — web app
+
+React 19 + TypeScript SPA built with Vite, styled with Tailwind CSS v4 + shadcn/ui, routed with React Router.
+Ships the public landing page, a sign-up form (`react-hook-form` + `zod`) wired to the register API, and a
+protected `/overview` area that a successful sign-up redirects into; sign-in and the upload flow come next.
+
+- Deliberately a plain SPA rather than Next.js: the Spring API already owns auth and business logic, and the
+  refresh token is an httpOnly `SameSite=Strict` cookie designed for a browser client hitting the API directly.
+- The Vite dev server proxies `/api` to `http://localhost:8080`, so the app and API share an origin in
+  development (required for the refresh cookie).
+- API calls are isolated behind a small `src/lib/api/httpClient.ts` fetch wrapper, with feature code (starting with
+  `src/features/auth/`) calling that instead of `fetch` directly — see [`CLAUDE.md`](.claude/CLAUDE.md) for the
+  full frontend structure/auth notes.
+
 ## API Architecture
 
 The API follows **Clean Architecture** with some **DDD** principles, structured so that the domain and business
@@ -217,10 +231,22 @@ Requires `RABBITMQ_URL` and `MODEL_VERSION` (see `.env` in that directory) — n
 never touches object storage. Its `inference`/`train` modules can also be exercised directly as a library
 (`SquatScorePredictor` in `inference/squat_predictor.py`) independent of the RabbitMQ listener.
 
+### Running the frontend
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173, proxies /api to localhost:8080
+```
+
+Other commands: `npm run build` (type-check + production bundle), `npm run lint` (oxlint),
+`npm run preview` (serve the production build).
+
 ## Repository layout
 
 ```
 api/liftform/                      # Spring Boot REST API
+frontend/                          # React SPA (Vite + Tailwind + shadcn/ui)
 workers/pose_feature_extractor_worker/  # RabbitMQ consumer + MediaPipe pose extraction
 workers/score_analyzer_worker/     # RabbitMQ consumer + feature scoring model/inference
 docker-compose.yml                 # Base infra: postgres, rabbitmq, minio

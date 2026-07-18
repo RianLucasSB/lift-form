@@ -15,6 +15,9 @@ object storage:
 - `workers/score_analyzer_worker` — Python worker (model training + inference) that consumes extracted-feature
   events off RabbitMQ, turns them into a 0–1 form score and per-dimension feedback, and publishes the result (or a
   structured error) for the API to persist
+- `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Landing page, a working
+  sign-up form wired to the register API, and a protected `/overview` area logged-in users land in; sign-in and the
+  upload flow come next
 
 ## Commands
 
@@ -40,6 +43,32 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up   # prod-styl
 
 `docker-compose.override.yml` is picked up automatically by `docker compose` alongside `docker-compose.yml`, which
 is why local dev only needs `docker compose up`.
+
+### Frontend (run from `frontend/`)
+
+```bash
+npm install
+npm run dev        # Vite dev server on :5173; proxies /api → http://localhost:8080 (vite.config.ts)
+npm run build      # tsc -b + vite build
+npm run lint       # oxlint
+```
+
+Frontend notes:
+
+- **Deliberately a Vite SPA, not Next.js** — the Spring API owns auth/business logic, and the refresh token is an
+  httpOnly `SameSite=Strict` cookie (see `AuthController`), which requires the app and API to be same-origin: the
+  Vite dev proxy handles this locally; production will use nginx serving the bundle + reverse-proxying `/api`
+  (not yet wired into docker-compose).
+- Path alias `@/` → `src/` (configured in both `vite.config.ts` and the tsconfigs — `paths` without `baseUrl`,
+  which TS 6 deprecates). shadcn/ui components are generated into `src/components/ui/` via `npx shadcn add <name>`
+  (config in `components.json`); don't hand-write those.
+- Design tokens live in `src/index.css` (`:root` brand palette: `--plate-red`, `--plate-blue`, `--pass-green`,
+  `--steel`, mapped into shadcn's `--primary`/`--background`/etc.). Display type is Archivo Variable's width axis
+  (`font-stretch-expanded` + `font-black`), data/labels are IBM Plex Mono — both self-hosted via `@fontsource`.
+- `package.json` pins `@rolldown/binding-linux-x64-gnu` and `@oxlint/binding-linux-x64-gnu` in
+  `optionalDependencies` as a workaround for npm silently skipping platform-native optional deps (npm bug #4828);
+  harmless on other platforms. If `vite build` or `oxlint` fails with "Cannot find native binding", reinstall after
+  deleting `node_modules` and `package-lock.json`, or extract the binding tarball manually via `npm pack`.
 
 ### Pose feature extractor worker (`workers/pose_feature_extractor_worker/`)
 
@@ -175,6 +204,38 @@ split each rep into eccentric/concentric phases and compute angle, tempo, veloci
 `aggregate_rep_features` reduces the list of per-rep feature dicts into the single averaged (+ std) feature vector
 that `SquatScorePredictor` expects as input — the `FEATURE_COLS` list in `squat_predictor.py` must stay in sync with
 whatever keys `aggregate_rep_features` produces.
+
+### Frontend: feature-based structure & auth
+
+`frontend/src` has no framework-imposed structure (plain Vite SPA), so the convention established by the sign-up
+feature is: generic infrastructure lives in `src/lib/`, and everything specific to one feature lives together
+under `src/features/<feature>/`.
+
+- `src/lib/api/httpClient.ts` — the only place that calls `fetch`. A thin wrapper: same-origin relative paths
+  (`/api/v1/...`, works through the Vite proxy in dev and will work through nginx in prod), `credentials: 'include'`
+  so the httpOnly refresh cookie round-trips, and it normalizes `GlobalExceptionHandler`'s `{ errors: string[] }`
+  response shape into a typed `ApiError` (`status` + `errors`). Feature-level API modules (e.g.
+  `src/features/auth/api/authApi.ts`) call this instead of `fetch` directly — keeps HTTP/error-shape concerns out
+  of components and out of every individual feature.
+- `src/features/<feature>/` — `api/` (gateway functions per endpoint), `schemas/` (zod schemas, mirroring the
+  backend DTO's bean validation so the form rejects the same inputs the API would), `hooks/` (React state around
+  an API call — loading/error/submit), `components/` (the actual form/UI), `context/` (feature-scoped React
+  context, e.g. auth). See `src/features/auth/` as the reference implementation.
+- **Auth state (`src/features/auth/context/AuthContext.tsx`)** — the access token lives in memory only (plain
+  `useState` in a context provider), never `localStorage`/`sessionStorage`, keeping it out of reach of XSS-readable
+  storage; the API already pairs this with an httpOnly refresh cookie for the longer-lived session. Trade-off:
+  there's no silent-refresh-on-load yet, so a hard reload of a protected route currently drops the in-memory token
+  and bounces to `/login` — wiring a bootstrap `POST /auth/refresh` call belongs with the future sign-in work.
+- **`src/routes/ProtectedRoute.tsx`** — reads `useAuth().isAuthenticated`; renders `<Outlet/>` if authenticated,
+  otherwise `<Navigate to="/login"/>`. Wrap any route that requires a logged-in user with it in `main.tsx`.
+- **Routes** (`src/main.tsx`): `/` (landing), `/login` and `/register` (both render `AuthPage`, keyed by a `mode`
+  prop — `/register` renders `RegisterForm`, `/login` is still a placeholder), and `/overview` (protected — the
+  logged-in landing area a successful sign-up/sign-in redirects to; deliberately not named `/dashboard`, kept short
+  since it'll eventually host more than one dashboard-shaped view).
+- The project's shadcn style (`components.json`, style `radix-nova`) does **not** ship a `form` primitive (`npx
+  shadcn add form` is a no-op in this registry) — forms wire `react-hook-form` directly to the generated
+  `Input`/`Label` primitives with `zodResolver`, rather than the `FormField`/`FormItem` wrapper other shadcn
+  projects use. See `RegisterForm.tsx` for the pattern to follow for the next form.
 
 ## Testing notes
 
