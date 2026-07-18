@@ -15,6 +15,8 @@ object storage:
 - `workers/score_analyzer_worker` — Python worker (model training + inference) that consumes extracted-feature
   events off RabbitMQ, turns them into a 0–1 form score and per-dimension feedback, and publishes the result (or a
   structured error) for the API to persist
+- `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Currently just the
+  landing page and placeholder `/login`/`/register` routes; the authenticated app comes next
 
 ## Commands
 
@@ -40,6 +42,32 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up   # prod-styl
 
 `docker-compose.override.yml` is picked up automatically by `docker compose` alongside `docker-compose.yml`, which
 is why local dev only needs `docker compose up`.
+
+### Frontend (run from `frontend/`)
+
+```bash
+npm install
+npm run dev        # Vite dev server on :5173; proxies /api → http://localhost:8080 (vite.config.ts)
+npm run build      # tsc -b + vite build
+npm run lint       # oxlint
+```
+
+Frontend notes:
+
+- **Deliberately a Vite SPA, not Next.js** — the Spring API owns auth/business logic, and the refresh token is an
+  httpOnly `SameSite=Strict` cookie (see `AuthController`), which requires the app and API to be same-origin: the
+  Vite dev proxy handles this locally; production will use nginx serving the bundle + reverse-proxying `/api`
+  (not yet wired into docker-compose).
+- Path alias `@/` → `src/` (configured in both `vite.config.ts` and the tsconfigs — `paths` without `baseUrl`,
+  which TS 6 deprecates). shadcn/ui components are generated into `src/components/ui/` via `npx shadcn add <name>`
+  (config in `components.json`); don't hand-write those.
+- Design tokens live in `src/index.css` (`:root` brand palette: `--plate-red`, `--plate-blue`, `--pass-green`,
+  `--steel`, mapped into shadcn's `--primary`/`--background`/etc.). Display type is Archivo Variable's width axis
+  (`font-stretch-expanded` + `font-black`), data/labels are IBM Plex Mono — both self-hosted via `@fontsource`.
+- `package.json` pins `@rolldown/binding-linux-x64-gnu` and `@oxlint/binding-linux-x64-gnu` in
+  `optionalDependencies` as a workaround for npm silently skipping platform-native optional deps (npm bug #4828);
+  harmless on other platforms. If `vite build` or `oxlint` fails with "Cannot find native binding", reinstall after
+  deleting `node_modules` and `package-lock.json`, or extract the binding tarball manually via `npm pack`.
 
 ### Pose feature extractor worker (`workers/pose_feature_extractor_worker/`)
 
