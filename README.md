@@ -235,12 +235,12 @@ never touches object storage. Its `inference`/`train` modules can also be exerci
 
 ```bash
 cd frontend
-npm install
-npm run dev        # http://localhost:5173, proxies /api to localhost:8080
+pnpm install
+pnpm run dev        # http://localhost:5173, proxies /api to localhost:8080
 ```
 
-Other commands: `npm run build` (type-check + production bundle), `npm run lint` (oxlint),
-`npm run preview` (serve the production build).
+Other commands: `pnpm run build` (type-check + production bundle), `pnpm run lint` (oxlint),
+`pnpm run preview` (serve the production build).
 
 ## Repository layout
 
