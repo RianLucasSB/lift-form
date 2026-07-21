@@ -179,9 +179,15 @@ automatically by `docker compose`):
 | `spring_api`                    | The REST API                                       | `8080`              |
 | `pose_feature_extractor_worker` | Consumes upload events, runs pose extraction       | —                   |
 | `score_analyzer_worker`         | Consumes extracted features, runs scoring          | —                   |
+| `frontend`                      | React SPA, Vite dev server with hot reload         | `5173`              |
 
 RabbitMQ management UI: http://localhost:15672 (`guest`/`guest`). MinIO console: http://localhost:9001
-(`minioadmin`/`minioadmin`).
+(`minioadmin`/`minioadmin`). Frontend: http://localhost:5173.
+
+The `frontend` service runs the Vite dev server in the container (source bind-mounted, so edits on the host hot
+reload), not a production build — there's no production image for the frontend yet. Its `/api` proxy target points
+at the `spring_api` service instead of `localhost` (see `API_PROXY_TARGET` in `docker-compose.override.yml`), which
+keeps the app and API same-origin the same way running it natively does.
 
 To run against images pulled from ECR instead of building locally (closer to the prod deployment shape):
 
@@ -232,6 +238,8 @@ never touches object storage. Its `inference`/`train` modules can also be exerci
 (`SquatScorePredictor` in `inference/squat_predictor.py`) independent of the RabbitMQ listener.
 
 ### Running the frontend
+
+Included in `docker compose up` (see above). To run it natively instead (outside Docker):
 
 ```bash
 cd frontend

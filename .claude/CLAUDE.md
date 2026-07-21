@@ -37,12 +37,22 @@ pass.
 ### Full stack (docker-compose, run from repo root)
 
 ```bash
-docker compose up            # base (rabbitmq, postgres, minio) + docker-compose.override.yml (spring_api, pose_feature_extractor_worker, score_analyzer_worker) — used for local dev, loaded automatically
+docker compose up            # base (rabbitmq, postgres, minio) + docker-compose.override.yml (spring_api, pose_feature_extractor_worker, score_analyzer_worker, frontend) — used for local dev, loaded automatically
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up   # prod-style compose, images pulled from ECR instead of built locally
 ```
 
 `docker-compose.override.yml` is picked up automatically by `docker compose` alongside `docker-compose.yml`, which
 is why local dev only needs `docker compose up`.
+
+The `frontend` service in `docker-compose.override.yml` is dev-only: `frontend/Dockerfile` installs deps and runs
+`pnpm run dev` (Vite dev server, not a production build), with the source directory bind-mounted back in (plus an
+anonymous volume over `node_modules` so the container's own install — matching its Linux/glibc environment — isn't
+shadowed by whatever `node_modules` exists on the host). `vite.config.ts`'s dev-server proxy target is driven by
+`API_PROXY_TARGET` (falls back to `http://localhost:8080` for running `pnpm run dev` natively outside Docker), set
+to `http://spring_api:8080` in compose so the container reaches the API by service name; the proxy is still what
+keeps the app and API same-origin (see the frontend auth notes below), same as running the frontend natively. There
+is deliberately no production image/target yet — how the built bundle gets served and how `/api` gets reverse-proxied
+in prod (nginx in the image vs. path-based routing at an ALB, etc.) is still an open decision.
 
 ### Frontend (run from `frontend/`)
 
