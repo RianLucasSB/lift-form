@@ -47,14 +47,18 @@ is why local dev only needs `docker compose up`.
 ### Frontend (run from `frontend/`)
 
 ```bash
-npm install
-npm run dev        # Vite dev server on :5173; proxies /api → http://localhost:8080 (vite.config.ts)
-npm run build      # tsc -b + vite build
-npm run lint       # oxlint
+pnpm install
+pnpm run dev        # Vite dev server on :5173; proxies /api → http://localhost:8080 (vite.config.ts)
+pnpm run build      # tsc -b + vite build
+pnpm run lint       # oxlint
 ```
 
 Frontend notes:
 
+- **Package manager is pnpm, not npm** — migrated because npm has a long-standing bug (npm/cli#4828) silently
+  skipping platform-native optional dependencies (the `@rolldown/*` / `@oxlint/*` binding packages that `vite
+  build` and `oxlint` need). Use `pnpm`, not `npm`, for all installs/scripts in this directory; there's no
+  `package-lock.json` anymore, only `pnpm-lock.yaml`.
 - **Deliberately a Vite SPA, not Next.js** — the Spring API owns auth/business logic, and the refresh token is an
   httpOnly `SameSite=Strict` cookie (see `AuthController`), which requires the app and API to be same-origin: the
   Vite dev proxy handles this locally; production will use nginx serving the bundle + reverse-proxying `/api`
@@ -65,10 +69,14 @@ Frontend notes:
 - Design tokens live in `src/index.css` (`:root` brand palette: `--plate-red`, `--plate-blue`, `--pass-green`,
   `--steel`, mapped into shadcn's `--primary`/`--background`/etc.). Display type is Archivo Variable's width axis
   (`font-stretch-expanded` + `font-black`), data/labels are IBM Plex Mono — both self-hosted via `@fontsource`.
-- `package.json` pins `@rolldown/binding-linux-x64-gnu` and `@oxlint/binding-linux-x64-gnu` in
-  `optionalDependencies` as a workaround for npm silently skipping platform-native optional deps (npm bug #4828);
-  harmless on other platforms. If `vite build` or `oxlint` fails with "Cannot find native binding", reinstall after
-  deleting `node_modules` and `package-lock.json`, or extract the binding tarball manually via `npm pack`.
+- `package.json` still pins `@rolldown/binding-linux-x64-gnu` and `@oxlint/binding-linux-x64-gnu` as exact-version
+  `devDependencies` (not `optionalDependencies`) — pnpm's own automatic platform-optional-dependency resolution
+  turned out to have the identical failure mode in this dev environment (reproduced with an unrelated package,
+  `esbuild`, in isolation — not an npm-specific bug after all, something about this machine's optional-dep
+  detection). Pinning the exact package+version sidesteps whatever auto-detection is failing, for either package
+  manager. If `vite build` or `oxlint` fails with "Cannot find native binding" again (e.g. after a version bump
+  changes the pinned version), reinstall after deleting `node_modules` and `pnpm-lock.yaml`, or extract the binding
+  tarball manually via `pnpm pack`/`npm pack` and drop it into `node_modules/@scope/binding-.../`.
 
 ### Pose feature extractor worker (`workers/pose_feature_extractor_worker/`)
 
