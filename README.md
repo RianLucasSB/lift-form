@@ -58,13 +58,16 @@ back angle, tempo, lockout, range of motion, consistency), then publishes the re
 ### `frontend/` — web app
 
 React 19 + TypeScript SPA built with Vite, styled with Tailwind CSS v4 + shadcn/ui, routed with React Router.
-Currently ships the public landing page plus placeholder sign-in/sign-up routes; the authenticated app (upload
-flow, analysis results) comes next.
+Ships the public landing page, a sign-up form (`react-hook-form` + `zod`) wired to the register API, and a
+protected `/overview` area that a successful sign-up redirects into; sign-in and the upload flow come next.
 
 - Deliberately a plain SPA rather than Next.js: the Spring API already owns auth and business logic, and the
   refresh token is an httpOnly `SameSite=Strict` cookie designed for a browser client hitting the API directly.
 - The Vite dev server proxies `/api` to `http://localhost:8080`, so the app and API share an origin in
   development (required for the refresh cookie).
+- API calls are isolated behind a small `src/lib/api/httpClient.ts` fetch wrapper, with feature code (starting with
+  `src/features/auth/`) calling that instead of `fetch` directly — see [`CLAUDE.md`](.claude/CLAUDE.md) for the
+  full frontend structure/auth notes.
 
 ## API Architecture
 

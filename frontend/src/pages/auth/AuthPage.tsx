@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Wordmark } from '@/components/Wordmark.tsx'
+import { RegisterForm } from '@/features/auth/components/RegisterForm.tsx'
 
 interface AuthPageProps {
   mode: 'signin' | 'signup'
@@ -18,9 +19,13 @@ export function AuthPage({ mode }: AuthPageProps) {
           <h1 className="font-stretch-expanded text-xl font-black uppercase">
             {isSignin ? 'Sign in' : 'Create your account'}
           </h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Accounts aren't open yet — sign in and sign up land in the next release.
-          </p>
+          {isSignin ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Accounts aren't open yet — sign in lands in the next release.
+            </p>
+          ) : (
+            <RegisterForm />
+          )}
           <p className="mt-6 border-t border-border pt-4 text-sm">
             {isSignin ? (
               <>
