@@ -262,6 +262,6 @@ under `src/features/<feature>/`.
 
 ## Workflow
 
-- Always update CLAUDE.MD and README.md after new features.
+- Always update CLAUDE.MD and README.md after new relevant features and architecture changes or something stated there changes.
 - Update postman collection inside /postman folder after new endpoints creations on SPRING API.
 - Run all tests after changes. Spring API Unit and integration tests and pyhton workers tests.
