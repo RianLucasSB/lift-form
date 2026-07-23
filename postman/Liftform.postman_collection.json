@@ -290,7 +290,7 @@
                 "upload-complete"
               ]
             },
-            "description": "Marks the VideoAnalysis as UPLOADED and publishes a `VideoAnalysisUploaded` event to RabbitMQ, which the pose_feature_extractor_worker consumes to start processing. Requires a Bearer access token belonging to the same user that created the analysis."
+            "description": "Marks the VideoAnalysis as UPLOADED and publishes a `VideoAnalysisUploaded` event to RabbitMQ, which the pose-feature-extractor-worker consumes to start processing. Requires a Bearer access token belonging to the same user that created the analysis."
           },
           "event": [
             {

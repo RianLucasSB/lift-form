@@ -1,5 +1,5 @@
 services:
-  pose_feature_extractor_worker:
+  pose-feature-extractor-worker:
     build: ./workers/pose_feature_extractor_worker
     depends_on:
       rabbitmq:
@@ -7,13 +7,13 @@ services:
       minio-setup:
         condition: service_completed_successfully
 
-  score_analyzer_worker:
+  score-analyzer-worker:
     build: ./workers/score_analyzer_worker
     depends_on:
       rabbitmq:
         condition: service_healthy
 
-  spring_api:
+  spring-api:
     build: ./api/liftform
     environment:
       - SPRING_PROFILES_ACTIVE=local
@@ -30,11 +30,11 @@ services:
   frontend:
     build: ./frontend
     environment:
-      - API_PROXY_TARGET=http://spring_api:8080
+      - API_PROXY_TARGET=http://spring-api:8080
     ports:
       - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - spring_api
+      - spring-api

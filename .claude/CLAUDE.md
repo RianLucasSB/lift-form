@@ -10,9 +10,9 @@ quality. The system is a polyglot monorepo with three parts that communicate ove
 object storage:
 
 - `api/liftform` — Java 21 / Spring Boot 4 REST API (source of truth for users, auth, and video-analysis records)
-- `workers/pose_feature_extractor_worker` — Python worker that consumes upload events, downloads the video, runs
+- `workers/pose-feature-extractor-worker` — Python worker that consumes upload events, downloads the video, runs
   MediaPipe pose estimation, and computes rep/angle features
-- `workers/score_analyzer_worker` — Python worker (model training + inference) that consumes extracted-feature
+- `workers/score-analyzer-worker` — Python worker (model training + inference) that consumes extracted-feature
   events off RabbitMQ, turns them into a 0–1 form score and per-dimension feedback, and publishes the result (or a
   structured error) for the API to persist
 - `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Landing page, a working
@@ -37,7 +37,7 @@ pass.
 ### Full stack (docker-compose, run from repo root)
 
 ```bash
-docker compose up            # base (rabbitmq, postgres, minio) + docker-compose.override.yml (spring_api, pose_feature_extractor_worker, score_analyzer_worker, frontend) — used for local dev, loaded automatically
+docker compose up            # base (rabbitmq, postgres, minio) + docker-compose.override.yml (spring-api, pose-feature-extractor-worker, score-analyzer-worker, frontend) — used for local dev, loaded automatically
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up   # prod-style compose, images pulled from ECR instead of built locally
 ```
 
@@ -49,7 +49,7 @@ The `frontend` service in `docker-compose.override.yml` is dev-only: `frontend/D
 anonymous volume over `node_modules` so the container's own install — matching its Linux/glibc environment — isn't
 shadowed by whatever `node_modules` exists on the host). `vite.config.ts`'s dev-server proxy target is driven by
 `API_PROXY_TARGET` (falls back to `http://localhost:8080` for running `pnpm run dev` natively outside Docker), set
-to `http://spring_api:8080` in compose so the container reaches the API by service name; the proxy is still what
+to `http://spring-api:8080` in compose so the container reaches the API by service name; the proxy is still what
 keeps the app and API same-origin (see the frontend auth notes below), same as running the frontend natively. There
 is deliberately no production image/target yet — how the built bundle gets served and how `/api` gets reverse-proxied
 in prod (nginx in the image vs. path-based routing at an ALB, etc.) is still an open decision.
@@ -88,7 +88,7 @@ Frontend notes:
   changes the pinned version), reinstall after deleting `node_modules` and `pnpm-lock.yaml`, or extract the binding
   tarball manually via `pnpm pack`/`npm pack` and drop it into `node_modules/@scope/binding-.../`.
 
-### Pose feature extractor worker (`workers/pose_feature_extractor_worker/`)
+### Pose feature extractor worker (`workers/pose-feature-extractor-worker/`)
 
 ```bash
 pip install -r requirements.txt
@@ -98,7 +98,7 @@ python listener.py     # connects to RabbitMQ and consumes video-analysis.queue
 Requires `RABBITMQ_URL` and AWS/S3 env vars (see `.env` in that directory); against local dev stack these point at
 the `minio` and `rabbitmq` docker-compose services.
 
-### Score analyzer worker (`workers/score_analyzer_worker/`)
+### Score analyzer worker (`workers/score-analyzer-worker/`)
 
 ```bash
 pip install -r requirements.txt
@@ -163,13 +163,13 @@ files, never edit an already-applied migration.
    `listener.py` files use the identical literal strings under the same names. **If you change any queue/exchange
    name or argument, update every side that declares it** (see the table below) — nothing declares idempotently
    relative to another service, and a mismatch causes queue redeclaration errors.
-1. `pose_feature_extractor_worker/listener.py` consumes the message, downloads the video from S3 (`s3.py`), and runs
+1. `pose-feature-extractor-worker/listener.py` consumes the message, downloads the video from S3 (`s3.py`), and runs
    `worker.py`'s `get_squat_bottoms_multiple_reps` to extract per-rep pose features via MediaPipe.
 1. On success, the extractor publishes `{"videoAnalysisId": ..., "features": aggregate_rep_features(...)}` to
    routing key `video-analysis.extracted` (`SCORING_ROUTING_KEY`), landing in `video-analysis.scoring.queue` — this
    is what triggers the second stage. A `None` `features` result (pose detected but no valid reps) is treated as a
    failure rather than silently acked.
-1. `score_analyzer_worker/listener.py` consumes that message and scores it via `SquatScorePredictor.predict(...)`.
+1. `score-analyzer-worker/listener.py` consumes that message and scores it via `SquatScorePredictor.predict(...)`.
    On success it publishes `{"videoAnalysisId", "modelVersion", "overallScore", "feedback", "rawFeatures"}` to
    routing key `video-analysis.finished` (`RESULTS_ROUTING_KEY`), landing in `video-analysis.results.queue`. Note
    there is **no `classification` field** in this payload — see the DDD note below.
@@ -202,7 +202,7 @@ files, never edit an already-applied migration.
 | Scoring | `video-analysis.extracted` | `video-analysis.scoring.queue` | `video-analysis.scoring.dlx` / `.dlq` | extractor (publisher, defensive declare), scorer (consumer + primary), API (DLQ consumer) |
 | Results | `video-analysis.finished` | `video-analysis.results.queue` | `video-analysis.results.dlx` / `.dlq` | scorer (publisher, defensive declare), API (consumer + primary) |
 
-`score_analyzer_worker` (`SquatScorePredictor` in `inference/squat_predictor.py`) takes the aggregated feature dict
+`score-analyzer-worker` (`SquatScorePredictor` in `inference/squat_predictor.py`) takes the aggregated feature dict
 produced by the extractor worker and scores it with a pre-trained model (`models/squat_score_model.joblib`),
 producing a 0–1 score, a qualitative label (`excellent`/`good`/`fair`/`poor`/`bad`, stashed in
 `feedback.overall_label` for a future frontend), and rule-based per-dimension feedback (depth, back angle, tempo,
@@ -211,7 +211,7 @@ constraint) is deliberately not computed in Python** — `Classification.fromSco
 domain enum) and `AnalysisResult.score(...)` (a smart constructor) own that mapping on the Java side, so the rule
 that decides what counts as a "good" score has one source of truth instead of being duplicated across languages.
 
-### Pose feature extraction (`workers/pose_feature_extractor_worker/worker.py`)
+### Pose feature extraction (`workers/pose-feature-extractor-worker/worker.py`)
 
 Rep detection is a hysteresis state machine over the knee-angle signal (`detect_reps_state_machine`): a rep begins
 when the knee angle drops below `entry_threshold_pct` of an estimated standing baseline (85th percentile of the
@@ -275,3 +275,17 @@ under `src/features/<feature>/`.
 - Always update CLAUDE.MD and README.md after new relevant features and architecture changes or something stated there changes.
 - Update postman collection inside /postman folder after new endpoints creations on SPRING API.
 - Run all tests after changes. Spring API Unit and integration tests and pyhton workers tests.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/<feature-slug>/` in this repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) used as-is. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

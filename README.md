@@ -28,7 +28,7 @@ and is the only service that talks to clients directly.
 - Stateless JWT auth, with refresh tokens stored hashed in Postgres.
 - Built with hexagonal / Clean Architecture — see [Architecture](#architecture) below.
 
-### `workers/pose_feature_extractor_worker` — pose extraction worker
+### `workers/pose-feature-extractor-worker` — pose extraction worker
 
 Python. Consumes `VideoAnalysisUploaded` events off RabbitMQ, downloads the video from S3, and runs MediaPipe pose
 estimation over it to extract rep-level features (angles, tempo, depth, smoothness, etc. per rep).
@@ -43,7 +43,7 @@ estimation over it to extract rep-level features (angles, tempo, depth, smoothne
 - This is the service expected to carry the most load (video download + CV inference per message), so it's built to
   be horizontally scaled — see [Scaling](#scaling) below.
 
-### `workers/score_analyzer_worker` — score analyzer worker
+### `workers/score-analyzer-worker` — score analyzer worker
 
 Python. Consumes the extractor worker's "features extracted" event off RabbitMQ, scores the feature dict with a
 pre-trained model, producing a 0–1 form score, a qualitative label, and rule-based per-dimension feedback (depth,
@@ -147,7 +147,7 @@ expected to need the most capacity since it's doing video download + CV inferenc
 comparatively lightweight.
 
 Today, scaling is manual and container-based: nothing more than running multiple containers of
-`pose_feature_extractor_worker` (all consuming from the same RabbitMQ queue, so messages are load-balanced across
+`pose-feature-extractor-worker` (all consuming from the same RabbitMQ queue, so messages are load-balanced across
 them automatically), on the same EC2 instance for better pricing while load is still low. The near-term evolution
 is to put the API (and eventually the workers) behind a load balancer (ELB/ALB) and scale out across multiple
 instances instead of packing containers onto one box.
@@ -176,9 +176,9 @@ automatically by `docker compose`):
 | `postgres`                      | API's database                                     | `5432`              |
 | `rabbitmq`                      | Event broker (management UI included)              | `5672`, `15672`     |
 | `minio` / `minio-setup`         | S3-compatible object storage; bucket auto-created  | `9000`, `9001`      |
-| `spring_api`                    | The REST API                                       | `8080`              |
-| `pose_feature_extractor_worker` | Consumes upload events, runs pose extraction       | —                   |
-| `score_analyzer_worker`         | Consumes extracted features, runs scoring          | —                   |
+| `spring-api`                    | The REST API                                       | `8080`              |
+| `pose-feature-extractor-worker` | Consumes upload events, runs pose extraction       | —                   |
+| `score-analyzer-worker`         | Consumes extracted features, runs scoring          | —                   |
 | `frontend`                      | React SPA, Vite dev server with hot reload         | `5173`              |
 
 RabbitMQ management UI: http://localhost:15672 (`guest`/`guest`). MinIO console: http://localhost:9001
@@ -186,7 +186,7 @@ RabbitMQ management UI: http://localhost:15672 (`guest`/`guest`). MinIO console:
 
 The `frontend` service runs the Vite dev server in the container (source bind-mounted, so edits on the host hot
 reload), not a production build — there's no production image for the frontend yet. Its `/api` proxy target points
-at the `spring_api` service instead of `localhost` (see `API_PROXY_TARGET` in `docker-compose.override.yml`), which
+at the `spring-api` service instead of `localhost` (see `API_PROXY_TARGET` in `docker-compose.override.yml`), which
 keeps the app and API same-origin the same way running it natively does.
 
 To run against images pulled from ECR instead of building locally (closer to the prod deployment shape):
@@ -217,7 +217,7 @@ Useful test commands:
 ### Running the pose extractor worker standalone
 
 ```bash
-cd workers/pose_feature_extractor_worker
+cd workers/pose-feature-extractor-worker
 pip install -r requirements.txt
 python listener.py
 ```
@@ -228,7 +228,7 @@ at the `minio` and `rabbitmq` docker-compose services.
 ### Running the score analyzer worker standalone
 
 ```bash
-cd workers/score_analyzer_worker
+cd workers/score-analyzer-worker
 pip install -r requirements.txt
 python listener.py
 ```
@@ -255,8 +255,8 @@ Other commands: `pnpm run build` (type-check + production bundle), `pnpm run lin
 ```
 api/liftform/                      # Spring Boot REST API
 frontend/                          # React SPA (Vite + Tailwind + shadcn/ui)
-workers/pose_feature_extractor_worker/  # RabbitMQ consumer + MediaPipe pose extraction
-workers/score_analyzer_worker/     # RabbitMQ consumer + feature scoring model/inference
+workers/pose-feature-extractor-worker/  # RabbitMQ consumer + MediaPipe pose extraction
+workers/score-analyzer-worker/     # RabbitMQ consumer + feature scoring model/inference
 docker-compose.yml                 # Base infra: postgres, rabbitmq, minio
 docker-compose.override.yml        # App services for local dev (auto-loaded alongside docker-compose.yml)
 docker-compose.prod.yml            # Prod-style compose, images from ECR
