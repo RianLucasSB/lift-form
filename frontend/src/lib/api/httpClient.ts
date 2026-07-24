@@ -79,6 +79,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     try {
       const newAccessToken = await refreshOnce()
       response = await send(path, options, newAccessToken)
+      if (response.status === 401) {
+        authHandlers.logout()
+      }
     } catch {
       authHandlers.logout()
     }
