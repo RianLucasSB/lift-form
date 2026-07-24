@@ -57,6 +57,9 @@
                   "    if (json.accessToken) {",
                   "        pm.collectionVariables.set(\"accessToken\", json.accessToken);",
                   "    }",
+                  "    if (json.expiresIn) {",
+                  "        pm.collectionVariables.set(\"expiresIn\", json.expiresIn);",
+                  "    }",
                   "}"
                 ]
               }
@@ -112,6 +115,9 @@
                   "    if (json.accessToken) {",
                   "        pm.collectionVariables.set(\"accessToken\", json.accessToken);",
                   "    }",
+                  "    if (json.expiresIn) {",
+                  "        pm.collectionVariables.set(\"expiresIn\", json.expiresIn);",
+                  "    }",
                   "}"
                 ]
               }
@@ -152,6 +158,9 @@
                   "    const json = pm.response.json();",
                   "    if (json.accessToken) {",
                   "        pm.collectionVariables.set(\"accessToken\", json.accessToken);",
+                  "    }",
+                  "    if (json.expiresIn) {",
+                  "        pm.collectionVariables.set(\"expiresIn\", json.expiresIn);",
                   "    }",
                   "}"
                 ]
@@ -329,6 +338,11 @@
     },
     {
       "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "expiresIn",
       "value": "",
       "type": "string"
     },

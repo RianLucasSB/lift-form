@@ -35,6 +35,7 @@ class RegisterUseCaseImplTest {
     private static final String HASHED_PASSWORD = "hashedpassword";
     private static final String ACCESS_TOKEN    = "generatedaccesstoken";
     private static final String REFRESH_TOKEN   = "generatedrefreshtoken";
+    private static final long   EXPIRES_IN      = 86400L;
 
     // -------------------------------------------------------------------------
     // Mocks & Subject
@@ -65,6 +66,7 @@ class RegisterUseCaseImplTest {
         assertThat(output).isNotNull();
         assertThat(output.accessToken()).isEqualTo(ACCESS_TOKEN);
         assertThat(output.refreshToken()).isEqualTo(REFRESH_TOKEN);
+        assertThat(output.expiresIn()).isEqualTo(EXPIRES_IN);
         assertSavedUserFields(input);
     }
 
@@ -122,6 +124,7 @@ class RegisterUseCaseImplTest {
         stubUserRepositorySave(TestFixtures.createUser());
         stubPasswordHasher(RAW_PASSWORD, HASHED_PASSWORD);
         stubAccessTokenGenerator(ACCESS_TOKEN);
+        stubExpiresIn(EXPIRES_IN);
         stubRefreshTokenGenerator(REFRESH_TOKEN);
     }
 
@@ -151,6 +154,10 @@ class RegisterUseCaseImplTest {
 
     private void stubAccessTokenGenerator(String token) {
         doReturn(token).when(accessTokenGenerator).generate(any());
+    }
+
+    private void stubExpiresIn(long expiresIn) {
+        doReturn(expiresIn).when(accessTokenGenerator).expiresInSeconds();
     }
 
     private void stubRefreshTokenGenerator(String token) {

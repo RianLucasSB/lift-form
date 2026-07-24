@@ -19,15 +19,22 @@ public class TokenService implements AccessTokenGenerator {
     @Value("${security.jwt.secret}")
     private String secret;
 
+    @Value("${security.jwt.access-token-ttl-seconds:86400}")
+    private long accessTokenTtlSeconds;
+
     public String generate(User user) {
         Algorithm algorithm = Algorithm.HMAC256(secret);
 
         return JWT.create()
                 .withClaim("userId", user.id().toString())
                 .withSubject(user.email())
-                .withExpiresAt(Instant.now().plusSeconds(86400))
+                .withExpiresAt(Instant.now().plusSeconds(accessTokenTtlSeconds))
                 .withIssuedAt(Instant.now())
                 .sign(algorithm);
+    }
+
+    public long expiresInSeconds() {
+        return accessTokenTtlSeconds;
     }
 
     public Optional<JWTUserData> validateToken(String token) {

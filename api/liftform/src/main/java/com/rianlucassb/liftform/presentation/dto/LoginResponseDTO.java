@@ -4,6 +4,7 @@ import lombok.Builder;
 
 @Builder
 public record LoginResponseDTO(
-        String accessToken
+        String accessToken,
+        long expiresIn
 ) {
 }

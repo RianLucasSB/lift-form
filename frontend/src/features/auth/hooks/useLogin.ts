@@ -2,18 +2,18 @@ import { useState } from 'react'
 import { ApiError } from '@/lib/api/httpClient'
 import { authApi } from '../api/authApi'
 import { useAuth } from '../context/AuthContext'
-import type { RegisterPayload } from '../types'
+import type { LoginPayload } from '../types'
 
-export function useRegister() {
+export function useLogin() {
   const { setSession } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function register(payload: RegisterPayload): Promise<boolean> {
+  async function login(payload: LoginPayload): Promise<boolean> {
     setIsSubmitting(true)
     setError(null)
     try {
-      const { accessToken, expiresIn } = await authApi.register(payload)
+      const { accessToken, expiresIn } = await authApi.login(payload)
       setSession(accessToken, expiresIn)
       return true
     } catch (err) {
@@ -24,5 +24,5 @@ export function useRegister() {
     }
   }
 
-  return { register, isSubmitting, error }
+  return { login, isSubmitting, error }
 }

@@ -33,6 +33,7 @@ public class RefreshTokenUseCaseImplTest {
     private static final String NEW_RAW_TOKEN    = "newRawRefreshToken";
     private static final String NEW_HASHED_TOKEN = "newHashedToken";
     private static final String ACCESS_TOKEN     = "accessToken";
+    private static final long   EXPIRES_IN       = 86400L;
 
     @Mock PasswordHasher         passwordHasher;
     @Mock RefreshTokenHasher     refreshTokenHasher;
@@ -55,6 +56,7 @@ public class RefreshTokenUseCaseImplTest {
         stubRefreshTokenRepository(HASHED_TOKEN, token);
         stubUserRepository(user.id(), user);
         stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubExpiresIn(EXPIRES_IN);
         stubRefreshTokenGenerator(NEW_RAW_TOKEN);
 
         var output = refreshTokenUseCase.execute(new RefreshTokenUseCaseInput(RAW_TOKEN));
@@ -62,6 +64,7 @@ public class RefreshTokenUseCaseImplTest {
         assertThat(output).isNotNull();
         assertThat(output.accessToken()).isNotNull();
         assertThat(output.refreshToken()).isNotNull();
+        assertThat(output.expiresIn()).isEqualTo(EXPIRES_IN);
     }
 
     @Test
@@ -75,6 +78,7 @@ public class RefreshTokenUseCaseImplTest {
         stubRefreshTokenRepository(HASHED_TOKEN, token);
         stubUserRepository(user.id(), user);
         stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubExpiresIn(EXPIRES_IN);
         stubRefreshTokenGenerator(NEW_RAW_TOKEN);
 
         refreshTokenUseCase.execute(new RefreshTokenUseCaseInput(RAW_TOKEN));
@@ -161,6 +165,10 @@ public class RefreshTokenUseCaseImplTest {
 
     private void stubAccessTokenGenerator(User user, String token) {
         doReturn(token).when(accessTokenGenerator).generate(user);
+    }
+
+    private void stubExpiresIn(long expiresIn) {
+        doReturn(expiresIn).when(accessTokenGenerator).expiresInSeconds();
     }
 
     private void stubUserRepository(UUID userId, User user) {

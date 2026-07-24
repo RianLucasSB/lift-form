@@ -1,6 +1,7 @@
 package com.rianlucassb.liftform.presentation.dto;
 
 public record RefreshTokenResponseDTO(
-        String accessToken
+        String accessToken,
+        long expiresIn
 ) {
 }

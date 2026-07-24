@@ -68,6 +68,6 @@ public class RegisterUseCaseImpl implements RegisterUseCase {
 
         refreshTokenRepository.save(refreshToken);
 
-        return new RegisterUseCaseOutput(accessToken, rawRefreshToken);
+        return new RegisterUseCaseOutput(accessToken, rawRefreshToken, accessTokenGenerator.expiresInSeconds());
     }
 }
