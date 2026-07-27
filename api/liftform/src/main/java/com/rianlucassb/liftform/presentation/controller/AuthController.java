@@ -81,26 +81,20 @@ public class AuthController {
         logoutUseCase.execute(new LogoutUseCaseInput(userdata.id()));
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, getExpiredRefreshCookie().toString())
+                .header(HttpHeaders.SET_COOKIE, getRefreshCookie("", Duration.ZERO).toString())
                 .build();
     }
 
-    private @NonNull ResponseCookie getRefreshCookie(String output) {
-        return ResponseCookie.from("refresh_token", output)
-                .httpOnly(true)
-                .secure(cookieSecure)
-                .path("/api/v1/auth/refresh")
-                .maxAge(Duration.ofDays(10))
-                .sameSite("Strict")
-                .build();
+    private @NonNull ResponseCookie getRefreshCookie(String value) {
+        return getRefreshCookie(value, Duration.ofDays(10));
     }
 
-    private @NonNull ResponseCookie getExpiredRefreshCookie() {
-        return ResponseCookie.from("refresh_token", "")
+    private @NonNull ResponseCookie getRefreshCookie(String value, Duration maxAge) {
+        return ResponseCookie.from("refresh_token", value)
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/api/v1/auth/refresh")
-                .maxAge(0)
+                .maxAge(maxAge)
                 .sameSite("Strict")
                 .build();
     }

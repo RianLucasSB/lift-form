@@ -266,16 +266,16 @@ under `src/features/<feature>/`.
 - **Auth state (`src/features/auth/context/AuthContext.tsx`)** — the access token lives in memory only (plain
   `useState` in a context provider), never `localStorage`/`sessionStorage`, keeping it out of reach of XSS-readable
   storage; the API pairs this with an httpOnly refresh cookie for the longer-lived session. `AuthProvider`:
-  - Exposes `isInitializing` (starts `true`) alongside `accessToken`/`isAuthenticated`/`setSession`/`logout`/
-    `signOut`. On mount it calls `POST /auth/refresh` to silently redeem any existing refresh cookie (so a hard
-    reload of a protected route doesn't bounce a logged-in user to `/login`), flipping `isInitializing` to `false`
-    once that settles either way.
-  - `logout` (synchronous, network-free) vs `signOut` (async): `logout` only clears local state and is also used
-    internally as `httpClient`'s reactive "refresh failed" handler, so it can't itself make an API call — doing so
-    would risk re-triggering that same 401-refresh-retry path. `signOut` is the user-facing action (wired to the
-    account menu's "Log out"): it calls `authApi.logout()` (`POST /auth/logout`, revokes the refresh token
-    server-side) best-effort, then always calls `logout()` to end the session locally regardless of whether the
-    network call succeeded.
+  - Exposes `isInitializing` (starts `true`) alongside `accessToken`/`isAuthenticated`/`setSession`/`signOut`. On
+    mount it calls `POST /auth/refresh` to silently redeem any existing refresh cookie (so a hard reload of a
+    protected route doesn't bounce a logged-in user to `/login`), flipping `isInitializing` to `false` once that
+    settles either way.
+  - `signOut` (async, exposed via `useAuth()` — wired to the account menu's "Log out") vs the internal
+    `endLocalSession` (synchronous, network-free, **not** exposed on the context value): `endLocalSession` only
+    clears local state and is also used internally as `httpClient`'s reactive "refresh failed" handler, so it can't
+    itself make an API call — doing so would risk re-triggering that same 401-refresh-retry path. `signOut` calls
+    `authApi.logout()` (`POST /auth/logout`, revokes the refresh token server-side) best-effort, then always calls
+    `endLocalSession()` to end the session locally regardless of whether the network call succeeded.
   - Schedules a **proactive refresh** timer ~60s before the current access token's `expiresIn` elapses (jittered
     ±15s), so the reactive `httpClient` 401-retry path is rarely hit in practice. A proactive refresh that fails
     (e.g. a sibling tab already rotated the refresh token — see below) is silently skipped rather than logging the
