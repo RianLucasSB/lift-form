@@ -17,6 +17,7 @@ interface AuthContextValue {
   isInitializing: boolean
   setSession: (accessToken: string, expiresIn: number) => void
   logout: () => void
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -58,6 +59,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     expiresAtRef.current = null
     setAccessTokenState(null)
   }, [clearRefreshTimer])
+
+  // User-initiated sign-out: revokes the refresh token server-side first
+  // (best-effort — the session ends locally either way), unlike `logout`
+  // above, which is also used internally as the reactive "refresh failed"
+  // handler and must stay a synchronous, network-free state clear.
+  const signOut = useCallback(async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // Best-effort — proceed to clear local state regardless.
+    } finally {
+      logout()
+    }
+  }, [logout])
 
   // Single-flight: the bootstrap check, the proactive timer, and httpClient's
   // reactive 401 handler can all want a refresh around the same moment. They
@@ -133,8 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitializing,
       setSession,
       logout,
+      signOut,
     }),
-    [accessToken, isInitializing, setSession, logout],
+    [accessToken, isInitializing, setSession, logout, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

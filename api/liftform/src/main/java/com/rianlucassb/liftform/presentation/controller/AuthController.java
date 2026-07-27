@@ -1,10 +1,13 @@
 package com.rianlucassb.liftform.presentation.controller;
 
 import com.rianlucassb.liftform.core.usecases.user.login.LoginUseCase;
+import com.rianlucassb.liftform.core.usecases.user.logout.LogoutUseCase;
+import com.rianlucassb.liftform.core.usecases.user.logout.LogoutUseCaseInput;
 import com.rianlucassb.liftform.core.usecases.user.refreshtoken.RefreshTokenUseCase;
 import com.rianlucassb.liftform.core.usecases.user.refreshtoken.RefreshTokenUseCaseInput;
 import com.rianlucassb.liftform.core.usecases.user.register.RegisterUseCase;
 import com.rianlucassb.liftform.core.usecases.user.register.RegisterUseCaseOutput;
+import com.rianlucassb.liftform.infraestructure.config.security.JWTUserData;
 import com.rianlucassb.liftform.presentation.constants.ApiPaths;
 import com.rianlucassb.liftform.presentation.dto.*;
 import com.rianlucassb.liftform.presentation.mapper.LoginUseCaseMapper;
@@ -16,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -30,6 +34,8 @@ public class AuthController {
 
     private final RegisterUseCase registerUseCase;
     private final RegisterUseCaseMapper registerUseCaseMapper;
+
+    private final LogoutUseCase logoutUseCase;
 
     @Value("${app.cookie.secure:true}")
     private boolean cookieSecure;
@@ -70,12 +76,31 @@ public class AuthController {
                 .body(new RefreshTokenResponseDTO(output.accessToken(), output.expiresIn()));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal JWTUserData userdata) {
+        logoutUseCase.execute(new LogoutUseCaseInput(userdata.id()));
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, getExpiredRefreshCookie().toString())
+                .build();
+    }
+
     private @NonNull ResponseCookie getRefreshCookie(String output) {
         return ResponseCookie.from("refresh_token", output)
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/api/v1/auth/refresh")
                 .maxAge(Duration.ofDays(10))
+                .sameSite("Strict")
+                .build();
+    }
+
+    private @NonNull ResponseCookie getExpiredRefreshCookie() {
+        return ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/api/v1/auth/refresh")
+                .maxAge(0)
                 .sameSite("Strict")
                 .build();
     }

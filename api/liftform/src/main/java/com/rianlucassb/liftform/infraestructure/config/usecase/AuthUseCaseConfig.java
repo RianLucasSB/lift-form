@@ -4,11 +4,14 @@ import com.rianlucassb.liftform.core.gateway.security.*;
 import com.rianlucassb.liftform.core.gateway.user.UserRepository;
 import com.rianlucassb.liftform.core.usecases.user.login.LoginUseCase;
 import com.rianlucassb.liftform.core.usecases.user.login.LoginUseCaseImpl;
+import com.rianlucassb.liftform.core.usecases.user.logout.LogoutUseCase;
+import com.rianlucassb.liftform.core.usecases.user.logout.LogoutUseCaseImpl;
 import com.rianlucassb.liftform.core.usecases.user.refreshtoken.RefreshTokenUseCase;
 import com.rianlucassb.liftform.core.usecases.user.refreshtoken.RefreshTokenUseCaseImpl;
 import com.rianlucassb.liftform.core.usecases.user.register.RegisterUseCase;
 import com.rianlucassb.liftform.core.usecases.user.register.RegisterUseCaseImpl;
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.auth.TransactionalLoginUseCase;
+import com.rianlucassb.liftform.infraestructure.adapter.transaction.auth.TransactionalLogoutUseCase;
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.auth.TransactionalRefreshTokenUseCase;
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.auth.TransactionalRegisterUseCase;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -96,5 +99,20 @@ public class AuthUseCaseConfig {
             @Qualifier("refreshTokenUseCaseImpl") RefreshTokenUseCase refreshTokenUseCase
     ) {
         return new TransactionalRefreshTokenUseCase(refreshTokenUseCase);
+    }
+
+    @Bean("logoutUseCaseImpl")
+    public LogoutUseCase logoutUseCase(
+            RefreshTokenRepository refreshTokenRepository
+    ) {
+        return new LogoutUseCaseImpl(refreshTokenRepository);
+    }
+
+    @Bean
+    @Primary
+    public LogoutUseCase transactionalLogoutUseCase(
+            @Qualifier("logoutUseCaseImpl") LogoutUseCase logoutUseCase
+    ) {
+        return new TransactionalLogoutUseCase(logoutUseCase);
     }
 }

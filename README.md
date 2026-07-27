@@ -59,7 +59,8 @@ back angle, tempo, lockout, range of motion, consistency), then publishes the re
 
 React 19 + TypeScript SPA built with Vite, styled with Tailwind CSS v4 + shadcn/ui, routed with React Router.
 Ships the public landing page, sign-up and sign-in forms (`react-hook-form` + `zod`) wired to the register/login
-APIs, and a protected `/overview` area that a successful sign-up/sign-in redirects into; the upload flow comes
+APIs, and a protected app shell (`/overview`, `/account`) that a successful sign-up/sign-in redirects into, with a
+shared header (logo, initials-avatar account menu, sign-out) across every authenticated page; the upload flow comes
 next.
 
 - Deliberately a plain SPA rather than Next.js: the Spring API already owns auth and business logic, and the

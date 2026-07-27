@@ -27,6 +27,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     private static final String REGISTER_URL = "/api/v1/auth/register";
     private static final String LOGIN_URL    = "/api/v1/auth/login";
     private static final String REFRESH_URL  = "/api/v1/auth/refresh";
+    private static final String LOGOUT_URL   = "/api/v1/auth/logout";
 
     // --------------------------------------------------------------- register
     @Test
@@ -158,6 +159,39 @@ class AuthControllerIT extends AbstractIntegrationTest {
     void refresh_invalidToken_returns401() throws Exception {
         mockMvc.perform(post(REFRESH_URL)
                         .cookie(new jakarta.servlet.http.Cookie("refresh_token", "invalid-token")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // --------------------------------------------------------------- logout
+    @Test
+    @DisplayName("POST /logout returns 403 when no access token is provided")
+    void logout_noAccessToken_returns403() throws Exception {
+        mockMvc.perform(post(LOGOUT_URL))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /logout revokes the refresh token and clears the cookie")
+    void logout_validAccessToken_revokesRefreshTokenAndClearsCookie() throws Exception {
+        var reg = Map.of("email", "logout@example.com", "username", "logoutuser", "password", "password123");
+        MvcResult regResult = mockMvc.perform(post(REGISTER_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(reg)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String accessToken = objectMapper.readTree(regResult.getResponse().getContentAsString()).get("accessToken").asText();
+        String refreshCookieHeader = regResult.getResponse().getHeader("Set-Cookie");
+        String refreshToken = extractCookieValue(refreshCookieHeader, "refresh_token");
+
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(cookie().maxAge("refresh_token", 0));
+
+        // the now-revoked refresh token can no longer be redeemed
+        mockMvc.perform(post(REFRESH_URL)
+                        .cookie(new jakarta.servlet.http.Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isUnauthorized());
     }
 

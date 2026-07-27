@@ -16,8 +16,9 @@ object storage:
   events off RabbitMQ, turns them into a 0–1 form score and per-dimension feedback, and publishes the result (or a
   structured error) for the API to persist
 - `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Landing page, sign-up and
-  sign-in forms wired to the register/login APIs, session bootstrap + proactive token refresh, and a protected
-  `/overview` area logged-in users land in; the upload flow comes next
+  sign-in forms wired to the register/login APIs, session bootstrap + proactive token refresh, and a protected app
+  shell (`/overview`, `/account`) with a shared header (logo, account menu, sign-out) logged-in users land in; the
+  upload flow comes next
 
 ## Commands
 
@@ -137,14 +138,25 @@ Package layout under `com.rianlucassb.liftform`:
   `ApiPaths.V1` (`/api/v1`).
 
 Security: stateless JWT auth (`JWTSecurityFilter` populates `@AuthenticationPrincipal JWTUserData`), configured in
-`SecurityConfig`. Only `/api/v1/auth/**` is public; everything else requires authentication. Refresh tokens are
-stored hashed (`RefreshTokenHasher`) with their own repository/entity, separate from access tokens (which are JWTs,
-not persisted). Access-token TTL is `security.jwt.access-token-ttl-seconds` (`application.yml`, defaults to `86400`
-if unset) — `TokenService` (implements `AccessTokenGenerator`) is the single place that reads it, both to set the
-JWT's `exp` claim and to expose it via `expiresInSeconds()`, which `Login`/`Register`/`RefreshTokenUseCaseImpl` all
-call to populate `expiresIn` on their outputs (and, in turn, `LoginResponseDTO`/`RegisterResponseDTO`/
-`RefreshTokenResponseDTO`) — the frontend uses this to schedule its own proactive refresh instead of decoding the
-JWT itself.
+`SecurityConfig`. Only `/api/v1/auth/login`, `/api/v1/auth/register`, and `/api/v1/auth/refresh` are public;
+everything else requires authentication — this includes `/api/v1/auth/logout` itself, which is deliberately *not*
+covered by a blanket `/api/v1/auth/**` permitAll (unlike the other three) since it needs `@AuthenticationPrincipal`
+to know which user's refresh token to revoke; `JWTSecurityFilter` populates the security context from a valid
+`Authorization: Bearer` header regardless of whether the route is public, so this only changes what happens when
+the header is *missing* (a 403, matching every other protected endpoint, instead of a silent no-op). Refresh tokens
+are stored hashed (`RefreshTokenHasher`) with their own repository/entity, separate from access tokens (which are
+JWTs, not persisted); `LogoutUseCase` revokes the caller's active refresh token (`RefreshToken.revoke()`) and
+`AuthController` clears the cookie (`maxAge(0)`) in the same response. Access-token TTL is
+`security.jwt.access-token-ttl-seconds` (`application.yml`, defaults to `86400` if unset) — `TokenService`
+(implements `AccessTokenGenerator`) is the single place that reads it, both to set the JWT's `exp` claim and to
+expose it via `expiresInSeconds()`, which `Login`/`Register`/`RefreshTokenUseCaseImpl` all call to populate
+`expiresIn` on their outputs (and, in turn, `LoginResponseDTO`/`RegisterResponseDTO`/`RefreshTokenResponseDTO`) —
+the frontend uses this to schedule its own proactive refresh instead of decoding the JWT itself.
+
+`GET /api/v1/users/me` (`UserController` / `GetCurrentUserUseCase`) returns the authenticated user's `username` and
+`email` — the one place the frontend can get profile data from, since neither the JWT claims (`JWTUserData`: `id`,
+`email` only) nor any of the auth responses carry a username. Read-only, so — like `GetAnalysisUseCase` /
+`ListAnalysesUseCase` — it's wired directly in `UserUseCaseConfig` with no `@Transactional` decorator wrapper.
 
 Migrations: Flyway, `src/main/resources/db/migration/V*.sql`, applied in order — add new changes as new `V{n}__*.sql`
 files, never edit an already-applied migration.
@@ -254,10 +266,16 @@ under `src/features/<feature>/`.
 - **Auth state (`src/features/auth/context/AuthContext.tsx`)** — the access token lives in memory only (plain
   `useState` in a context provider), never `localStorage`/`sessionStorage`, keeping it out of reach of XSS-readable
   storage; the API pairs this with an httpOnly refresh cookie for the longer-lived session. `AuthProvider`:
-  - Exposes `isInitializing` (starts `true`) alongside `accessToken`/`isAuthenticated`/`setSession`/`logout`.
-    On mount it calls `POST /auth/refresh` to silently redeem any existing refresh cookie (so a hard reload of a
-    protected route doesn't bounce a logged-in user to `/login`), flipping `isInitializing` to `false` once that
-    settles either way.
+  - Exposes `isInitializing` (starts `true`) alongside `accessToken`/`isAuthenticated`/`setSession`/`logout`/
+    `signOut`. On mount it calls `POST /auth/refresh` to silently redeem any existing refresh cookie (so a hard
+    reload of a protected route doesn't bounce a logged-in user to `/login`), flipping `isInitializing` to `false`
+    once that settles either way.
+  - `logout` (synchronous, network-free) vs `signOut` (async): `logout` only clears local state and is also used
+    internally as `httpClient`'s reactive "refresh failed" handler, so it can't itself make an API call — doing so
+    would risk re-triggering that same 401-refresh-retry path. `signOut` is the user-facing action (wired to the
+    account menu's "Log out"): it calls `authApi.logout()` (`POST /auth/logout`, revokes the refresh token
+    server-side) best-effort, then always calls `logout()` to end the session locally regardless of whether the
+    network call succeeded.
   - Schedules a **proactive refresh** timer ~60s before the current access token's `expiresIn` elapses (jittered
     ±15s), so the reactive `httpClient` 401-retry path is rarely hit in practice. A proactive refresh that fails
     (e.g. a sibling tab already rotated the refresh token — see below) is silently skipped rather than logging the
@@ -274,9 +292,22 @@ under `src/features/<feature>/`.
   `/login`/`/register` — same `isInitializing` gate, then redirects an already-authenticated user to `/overview`
   instead of showing them the sign-in/sign-up form again.
 - **Routes** (`src/main.tsx`): `/` (landing, unguarded), `/login` and `/register` (both render `AuthPage` — keyed by
-  a `mode` prop, `LoginForm`/`RegisterForm` respectively — wrapped in `AuthRoute`), and `/overview` (wrapped in
-  `ProtectedRoute` — the logged-in landing area a successful sign-up/sign-in redirects to; deliberately not named
-  `/dashboard`, kept short since it'll eventually host more than one dashboard-shaped view).
+  a `mode` prop, `LoginForm`/`RegisterForm` respectively — wrapped in `AuthRoute`), and `/overview` + `/account`
+  (both wrapped in `ProtectedRoute`; `/overview` is the logged-in landing area a successful sign-up/sign-in
+  redirects to — deliberately not named `/dashboard`, kept short since it'll eventually host more than one
+  dashboard-shaped view. `/account` is the account-info page the header's account menu links to).
+- **Account state (`src/features/account/`)** — a separate feature from `auth`: `auth` owns session mechanics
+  (tokens, login/logout), `account` owns profile data (currently username + email, with billing planned as a
+  future addition to the same area — see the `Account` entry in `CONTEXT.md`). `AccountProvider` (wraps the app
+  inside `AuthProvider`, in `main.tsx`) fetches `GET /users/me` once whenever `AuthContext.isAuthenticated` flips
+  to `true` (not on every proactive token refresh, since that doesn't change `isAuthenticated`), exposing
+  `currentUser`/`isLoading` via `useAccount()`. Plain React Context, matching `AuthContext` — no separate state
+  library; see `docs/adr/` if that trade-off is ever revisited.
+- **`src/components/AppHeader.tsx`** — shared chrome for every authenticated page (composes `Wordmark` +
+  `src/features/account/components/AccountMenu.tsx`, a shadcn `dropdown-menu` triggered by an initials avatar).
+  The unauthenticated landing page keeps its own simpler header (`Wordmark` only, no account menu).
+  `src/components/Logo.tsx` renders the same bracket+arc mark as `public/favicon.svg` inline (kept in sync by
+  hand — not a shared asset) and is composed into `Wordmark` alongside the "LIFTFORM" text.
 - The project's shadcn style (`components.json`, style `radix-nova`) does **not** ship a `form` primitive (`npx
   shadcn add form` is a no-op in this registry) — forms wire `react-hook-form` directly to the generated
   `Input`/`Label` primitives with `zodResolver`, rather than the `FormField`/`FormItem` wrapper other shadcn
