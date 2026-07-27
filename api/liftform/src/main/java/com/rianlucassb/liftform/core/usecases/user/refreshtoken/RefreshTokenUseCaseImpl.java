@@ -73,6 +73,6 @@ public class RefreshTokenUseCaseImpl implements RefreshTokenUseCase {
 
         refreshTokenRepository.save(newRefreshToken);
 
-        return new RefreshTokenUseCaseOutput(accessToken, newRefreshTokenRaw);
+        return new RefreshTokenUseCaseOutput(accessToken, newRefreshTokenRaw, accessTokenGenerator.expiresInSeconds());
     }
 }

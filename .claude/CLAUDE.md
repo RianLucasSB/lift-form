@@ -15,9 +15,9 @@ object storage:
 - `workers/score-analyzer-worker` — Python worker (model training + inference) that consumes extracted-feature
   events off RabbitMQ, turns them into a 0–1 form score and per-dimension feedback, and publishes the result (or a
   structured error) for the API to persist
-- `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Landing page, a working
-  sign-up form wired to the register API, and a protected `/overview` area logged-in users land in; sign-in and the
-  upload flow come next
+- `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Landing page, sign-up and
+  sign-in forms wired to the register/login APIs, session bootstrap + proactive token refresh, and a protected
+  `/overview` area logged-in users land in; the upload flow comes next
 
 ## Commands
 
@@ -139,7 +139,12 @@ Package layout under `com.rianlucassb.liftform`:
 Security: stateless JWT auth (`JWTSecurityFilter` populates `@AuthenticationPrincipal JWTUserData`), configured in
 `SecurityConfig`. Only `/api/v1/auth/**` is public; everything else requires authentication. Refresh tokens are
 stored hashed (`RefreshTokenHasher`) with their own repository/entity, separate from access tokens (which are JWTs,
-not persisted).
+not persisted). Access-token TTL is `security.jwt.access-token-ttl-seconds` (`application.yml`, defaults to `86400`
+if unset) — `TokenService` (implements `AccessTokenGenerator`) is the single place that reads it, both to set the
+JWT's `exp` claim and to expose it via `expiresInSeconds()`, which `Login`/`Register`/`RefreshTokenUseCaseImpl` all
+call to populate `expiresIn` on their outputs (and, in turn, `LoginResponseDTO`/`RegisterResponseDTO`/
+`RefreshTokenResponseDTO`) — the frontend uses this to schedule its own proactive refresh instead of decoding the
+JWT itself.
 
 Migrations: Flyway, `src/main/resources/db/migration/V*.sql`, applied in order — add new changes as new `V{n}__*.sql`
 files, never edit an already-applied migration.
@@ -234,26 +239,48 @@ under `src/features/<feature>/`.
   so the httpOnly refresh cookie round-trips, and it normalizes `GlobalExceptionHandler`'s `{ errors: string[] }`
   response shape into a typed `ApiError` (`status` + `errors`). Feature-level API modules (e.g.
   `src/features/auth/api/authApi.ts`) call this instead of `fetch` directly — keeps HTTP/error-shape concerns out
-  of components and out of every individual feature.
+  of components and out of every individual feature. Calls that need a session pass `{ authenticated: true }`,
+  which attaches `Authorization: Bearer` (via a `getAccessToken` callback registered from `AuthProvider` through
+  `configureAuth()` — `httpClient` lives outside the React tree, so this is how it reads current session state) and,
+  on a `401`, refreshes the session once and retries the request once before giving up; concurrent 401s share one
+  in-flight refresh call instead of racing separate ones. Public calls (`login`/`register`/`refresh` themselves)
+  leave `authenticated` unset — a `401` there (e.g. a wrong password) is a normal form error, not an expired
+  session, so it's never treated as a refresh trigger.
 - `src/features/<feature>/` — `api/` (gateway functions per endpoint), `schemas/` (zod schemas, mirroring the
-  backend DTO's bean validation so the form rejects the same inputs the API would), `hooks/` (React state around
-  an API call — loading/error/submit), `components/` (the actual form/UI), `context/` (feature-scoped React
-  context, e.g. auth). See `src/features/auth/` as the reference implementation.
+  backend DTO's bean validation so the form rejects the same inputs the API would — only where that validation
+  actually exists server-side; `LoginRequestDTO` has none, so `loginSchema` only checks non-empty), `hooks/` (React
+  state around an API call — loading/error/submit), `components/` (the actual form/UI), `context/` (feature-scoped
+  React context, e.g. auth). See `src/features/auth/` as the reference implementation.
 - **Auth state (`src/features/auth/context/AuthContext.tsx`)** — the access token lives in memory only (plain
   `useState` in a context provider), never `localStorage`/`sessionStorage`, keeping it out of reach of XSS-readable
-  storage; the API already pairs this with an httpOnly refresh cookie for the longer-lived session. Trade-off:
-  there's no silent-refresh-on-load yet, so a hard reload of a protected route currently drops the in-memory token
-  and bounces to `/login` — wiring a bootstrap `POST /auth/refresh` call belongs with the future sign-in work.
-- **`src/routes/ProtectedRoute.tsx`** — reads `useAuth().isAuthenticated`; renders `<Outlet/>` if authenticated,
-  otherwise `<Navigate to="/login"/>`. Wrap any route that requires a logged-in user with it in `main.tsx`.
-- **Routes** (`src/main.tsx`): `/` (landing), `/login` and `/register` (both render `AuthPage`, keyed by a `mode`
-  prop — `/register` renders `RegisterForm`, `/login` is still a placeholder), and `/overview` (protected — the
-  logged-in landing area a successful sign-up/sign-in redirects to; deliberately not named `/dashboard`, kept short
-  since it'll eventually host more than one dashboard-shaped view).
+  storage; the API pairs this with an httpOnly refresh cookie for the longer-lived session. `AuthProvider`:
+  - Exposes `isInitializing` (starts `true`) alongside `accessToken`/`isAuthenticated`/`setSession`/`logout`.
+    On mount it calls `POST /auth/refresh` to silently redeem any existing refresh cookie (so a hard reload of a
+    protected route doesn't bounce a logged-in user to `/login`), flipping `isInitializing` to `false` once that
+    settles either way.
+  - Schedules a **proactive refresh** timer ~60s before the current access token's `expiresIn` elapses (jittered
+    ±15s), so the reactive `httpClient` 401-retry path is rarely hit in practice. A proactive refresh that fails
+    (e.g. a sibling tab already rotated the refresh token — see below) is silently skipped rather than logging the
+    user out; only a failure of the *reactive* path in `httpClient` ends the session.
+  - Bootstrap, the proactive timer, and `httpClient`'s reactive refresh all funnel through one single-flight
+    `refreshSession` function (deduped via an in-flight-promise ref), since the backend rotates the refresh token
+    on every use and concurrent calls would otherwise race each other. See `docs/adr/0002-refresh-jitter-fail-soft.md`
+    for why a narrow multi-tab race is accepted instead of cross-tab coordination, and
+    `docs/adr/0001-no-csrf-token-for-refresh-cookie.md` for why `/auth/refresh` has no CSRF token (relies on
+    `SameSite=Strict` + same-origin instead).
+- **`src/routes/ProtectedRoute.tsx`** — while `useAuth().isInitializing` is true, renders a `RouteSkeleton` (neither
+  redirecting nor showing protected content until the bootstrap refresh settles); once resolved, renders `<Outlet/>`
+  if authenticated, otherwise `<Navigate to="/login"/>`. **`src/routes/AuthRoute.tsx`** is the inverse guard for
+  `/login`/`/register` — same `isInitializing` gate, then redirects an already-authenticated user to `/overview`
+  instead of showing them the sign-in/sign-up form again.
+- **Routes** (`src/main.tsx`): `/` (landing, unguarded), `/login` and `/register` (both render `AuthPage` — keyed by
+  a `mode` prop, `LoginForm`/`RegisterForm` respectively — wrapped in `AuthRoute`), and `/overview` (wrapped in
+  `ProtectedRoute` — the logged-in landing area a successful sign-up/sign-in redirects to; deliberately not named
+  `/dashboard`, kept short since it'll eventually host more than one dashboard-shaped view).
 - The project's shadcn style (`components.json`, style `radix-nova`) does **not** ship a `form` primitive (`npx
   shadcn add form` is a no-op in this registry) — forms wire `react-hook-form` directly to the generated
   `Input`/`Label` primitives with `zodResolver`, rather than the `FormField`/`FormItem` wrapper other shadcn
-  projects use. See `RegisterForm.tsx` for the pattern to follow for the next form.
+  projects use. See `RegisterForm.tsx`/`LoginForm.tsx` for the pattern to follow for the next form.
 
 ## Testing notes
 

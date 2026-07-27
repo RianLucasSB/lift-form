@@ -35,6 +35,7 @@ class LoginUseCaseImplTest {
     private static final String PASSWORD        = "validpassword";
     private static final String ACCESS_TOKEN    = "validaccesstoken";
     private static final String REFRESH_TOKEN   = "validrefreshtoken";
+    private static final long   EXPIRES_IN      = 86400L;
 
     // -------------------------------------------------------------------------
     // Mocks & Subject
@@ -63,12 +64,14 @@ class LoginUseCaseImplTest {
         stubUserRepositoryByUsername(LOGIN, user);
         stubPasswordVerify(PASSWORD, user.password(), true);
         stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubExpiresIn(EXPIRES_IN);
         stubRefreshTokenGenerator(REFRESH_TOKEN);
 
         var output = loginUseCase.execute(validInput());
 
         assertThat(output).isNotNull();
         assertThat(output.accessToken()).isEqualTo(ACCESS_TOKEN);
+        assertThat(output.expiresIn()).isEqualTo(EXPIRES_IN);
     }
 
     @Test
@@ -79,12 +82,14 @@ class LoginUseCaseImplTest {
         stubUserRepositoryByEmail(LOGIN, user);
         stubPasswordVerify(PASSWORD, user.password(), true);
         stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubExpiresIn(EXPIRES_IN);
         stubRefreshTokenGenerator(REFRESH_TOKEN);
 
         var output = loginUseCase.execute(validInput());
 
         assertThat(output).isNotNull();
         assertThat(output.accessToken()).isEqualTo(ACCESS_TOKEN);
+        assertThat(output.expiresIn()).isEqualTo(EXPIRES_IN);
     }
 
     @Test
@@ -124,6 +129,7 @@ class LoginUseCaseImplTest {
         stubUserRepositoryByUsername(LOGIN, user);
         stubPasswordVerify(PASSWORD, user.password(), true);
         stubAccessTokenGenerator(user, ACCESS_TOKEN);
+        stubExpiresIn(EXPIRES_IN);
         stubRefreshTokenGenerator(REFRESH_TOKEN);
 
         loginUseCase.execute(validInput());
@@ -157,6 +163,10 @@ class LoginUseCaseImplTest {
 
     private void stubAccessTokenGenerator(User user, String token) {
         doReturn(token).when(accessTokenGenerator).generate(user);
+    }
+
+    private void stubExpiresIn(long expiresIn) {
+        doReturn(expiresIn).when(accessTokenGenerator).expiresInSeconds();
     }
 
     private void stubRefreshTokenGenerator(String token) {

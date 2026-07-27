@@ -67,7 +67,7 @@ public class AuthController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(new RefreshTokenResponseDTO(output.accessToken()));
+                .body(new RefreshTokenResponseDTO(output.accessToken(), output.expiresIn()));
     }
 
     private @NonNull ResponseCookie getRefreshCookie(String output) {

@@ -39,6 +39,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.expiresIn").isNumber())
                 .andExpect(cookie().exists("refresh_token"))
                 .andExpect(cookie().httpOnly("refresh_token", true));
     }
@@ -91,6 +92,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(login)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.expiresIn").isNumber())
                 .andExpect(cookie().exists("refresh_token"));
     }
 
@@ -140,7 +142,8 @@ class AuthControllerIT extends AbstractIntegrationTest {
         mockMvc.perform(post(REFRESH_URL)
                         .cookie(new jakarta.servlet.http.Cookie("refresh_token", refreshToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.expiresIn").isNumber());
     }
 
     @Test

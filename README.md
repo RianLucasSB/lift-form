@@ -58,8 +58,9 @@ back angle, tempo, lockout, range of motion, consistency), then publishes the re
 ### `frontend/` — web app
 
 React 19 + TypeScript SPA built with Vite, styled with Tailwind CSS v4 + shadcn/ui, routed with React Router.
-Ships the public landing page, a sign-up form (`react-hook-form` + `zod`) wired to the register API, and a
-protected `/overview` area that a successful sign-up redirects into; sign-in and the upload flow come next.
+Ships the public landing page, sign-up and sign-in forms (`react-hook-form` + `zod`) wired to the register/login
+APIs, and a protected `/overview` area that a successful sign-up/sign-in redirects into; the upload flow comes
+next.
 
 - Deliberately a plain SPA rather than Next.js: the Spring API already owns auth and business logic, and the
   refresh token is an httpOnly `SameSite=Strict` cookie designed for a browser client hitting the API directly.
@@ -68,6 +69,10 @@ protected `/overview` area that a successful sign-up redirects into; sign-in and
 - API calls are isolated behind a small `src/lib/api/httpClient.ts` fetch wrapper, with feature code (starting with
   `src/features/auth/`) calling that instead of `fetch` directly — see [`CLAUDE.md`](.claude/CLAUDE.md) for the
   full frontend structure/auth notes.
+- Session handling: a bootstrap `POST /auth/refresh` on load (so a hard reload doesn't drop a logged-in session), a
+  jittered proactive refresh timer scheduled ahead of access-token expiry, and a reactive refresh-and-retry-once on
+  any authenticated request that 401s — see `docs/adr/0001-no-csrf-token-for-refresh-cookie.md` and
+  `docs/adr/0002-refresh-jitter-fail-soft.md` for the reasoning behind the trade-offs involved.
 
 ## API Architecture
 
