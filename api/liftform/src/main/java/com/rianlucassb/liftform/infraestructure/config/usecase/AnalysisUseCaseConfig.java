@@ -21,6 +21,7 @@ import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysi
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysis.TransactionalRecordAnalysisResultUsecase;
 import com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalysis.TransactionalRecordPipelineErrorUsecase;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -48,10 +49,12 @@ public class AnalysisUseCaseConfig {
     @Bean("confirmVideoUploadImpl")
     public ConfirmVideoUploadUseCase confirmVideoUploadUseCase(
             EventPublisher eventPublisher,
-            VideoAnalysisRepository videoAnalysisRepository
-
+            VideoAnalysisRepository videoAnalysisRepository,
+            VideoStorage videoStorage,
+            @Value("${analysis.upload.max-size-bytes:524288000}") long maxSizeBytes,
+            @Value("${analysis.upload.allowed-content-type:video/mp4}") String allowedContentType
     ) {
-        return new ConfirmVideoUploadUseCaseImpl(eventPublisher, videoAnalysisRepository);
+        return new ConfirmVideoUploadUseCaseImpl(eventPublisher, videoAnalysisRepository, videoStorage, maxSizeBytes, allowedContentType);
     }
 
     @Bean

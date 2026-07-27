@@ -299,7 +299,7 @@
                 "upload-complete"
               ]
             },
-            "description": "Marks the VideoAnalysis as UPLOADED and publishes a `VideoAnalysisUploaded` event to RabbitMQ, which the pose-feature-extractor-worker consumes to start processing. Requires a Bearer access token belonging to the same user that created the analysis."
+            "description": "Marks the VideoAnalysis as UPLOADED and publishes a `VideoAnalysisUploaded` event to RabbitMQ, which the pose-feature-extractor-worker consumes to start processing. Requires a Bearer access token belonging to the same user that created the analysis.\n\nBefore transitioning the status, the server HEADs the uploaded S3 object and validates it against `analysis.upload.max-size-bytes` (default 500MB) and `analysis.upload.allowed-content-type` (default `video/mp4`). If either check fails, the object is deleted from S3, the analysis is left in `CREATED` (so a client can restart the flow with `POST /analysis/create` and a valid file), and the response is:\n- `413 Payload Too Large` if the uploaded file exceeds the max size\n- `415 Unsupported Media Type` if the uploaded file's content type is not the allowed one\n\nBoth return the standard `{ errors: string[] }` error shape."
           },
           "event": [
             {

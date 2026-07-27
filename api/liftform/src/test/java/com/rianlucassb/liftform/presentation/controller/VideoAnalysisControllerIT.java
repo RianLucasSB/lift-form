@@ -3,6 +3,7 @@ package com.rianlucassb.liftform.presentation.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rianlucassb.liftform.AbstractIntegrationTest;
 import com.rianlucassb.liftform.core.domain.model.AnalysisResult;
+import com.rianlucassb.liftform.core.domain.model.VideoAnalysis;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoAnalysisRepository;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -33,6 +37,9 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
 
     @Autowired
     private VideoAnalysisRepository videoAnalysisRepository;
+
+    @Autowired
+    private S3Client s3Client;
 
     private static final String CREATE_URL   = "/api/v1/analysis/create";
     private static final String REGISTER_URL = "/api/v1/auth/register";
@@ -108,21 +115,34 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
     @Test
     @DisplayName("POST /analysis/videos/{id}/upload-complete returns 200 when authenticated and video exists")
     void confirmVideoUpload_authenticatedUser_existingCreatedAnalysis_returns200() throws Exception {
-        var body = Map.of("exerciseType", "SQUAT", "fileName", "my_squat.mp4");
-
-        MvcResult resultCreateAnalysis = mockMvc.perform(post(CREATE_URL)
-                .header("Authorization", "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(body)))
-                .andReturn();
-
-        Map<?, ?> response = objectMapper.readValue(resultCreateAnalysis.getResponse().getContentAsString(), Map.class);
-        Long analysisId = ((Number) response.get("analysisId")).longValue();
+        Long analysisId = createAnalysisAndUploadFakeVideo(new byte[1024], "video/mp4");
 
         mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(analysisId))
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /analysis/videos/{id}/upload-complete returns 413 when uploaded file exceeds the max size")
+    void confirmVideoUpload_fileTooLarge_returns413() throws Exception {
+        Long analysisId = createAnalysisAndUploadFakeVideo(new byte[600 * 1024 * 1024], "video/mp4");
+
+        mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(analysisId))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isPayloadTooLarge());
+    }
+
+    @Test
+    @DisplayName("POST /analysis/videos/{id}/upload-complete returns 415 when uploaded file content type is not supported")
+    void confirmVideoUpload_unsupportedContentType_returns415() throws Exception {
+        Long analysisId = createAnalysisAndUploadFakeVideo(new byte[1024], "video/quicktime");
+
+        mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(analysisId))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnsupportedMediaType());
     }
 
     @Test
@@ -269,6 +289,24 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
 
         Map<?, ?> response = objectMapper.readValue(result.getResponse().getContentAsString(), Map.class);
         return ((Number) response.get("analysisId")).longValue();
+    }
+
+    private static final String TEST_BUCKET = "test-bucket";
+
+    private Long createAnalysisAndUploadFakeVideo(byte[] content, String contentType) throws Exception {
+        Long analysisId = createAnalysis(accessToken);
+
+        VideoAnalysis analysis = videoAnalysisRepository.findById(analysisId).orElseThrow();
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(TEST_BUCKET)
+                        .key(analysis.getVideoS3Key())
+                        .contentType(contentType)
+                        .build(),
+                RequestBody.fromBytes(content)
+        );
+
+        return analysisId;
     }
 
     private void markAnalysisCompleted(Long analysisId) {

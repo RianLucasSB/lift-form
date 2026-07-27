@@ -26,3 +26,7 @@ aws:
   region: ${AWS_REGION:us-east-1}
   s3:
     bucket: ${AWS_S3_BUCKET:liftform-bucket}
+analysis:
+  upload:
+    max-size-bytes: 524288000
+    allowed-content-type: video/mp4

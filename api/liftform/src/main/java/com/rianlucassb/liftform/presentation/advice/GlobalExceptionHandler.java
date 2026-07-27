@@ -55,4 +55,18 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponseDTO(List.of(ex.getMessage())));
     }
+
+    @ExceptionHandler(FileTooLargeException.class)
+    public ResponseEntity<ErrorResponseDTO> handleFileTooLarge(FileTooLargeException ex) {
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ErrorResponseDTO(List.of(ex.getMessage())));
+    }
+
+    @ExceptionHandler(UnsupportedFileTypeException.class)
+    public ResponseEntity<ErrorResponseDTO> handleUnsupportedFileType(UnsupportedFileTypeException ex) {
+        return ResponseEntity
+                .status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(new ErrorResponseDTO(List.of(ex.getMessage())));
+    }
 }
