@@ -16,7 +16,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   isInitializing: boolean
   setSession: (accessToken: string, expiresIn: number) => void
-  logout: () => void
+  signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -52,12 +52,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessTokenState(token)
   }, [])
 
-  const logout = useCallback(() => {
+  // Synchronous, network-free state clear — not exposed via the context
+  // value. Used internally as httpClient's reactive "refresh failed"
+  // handler, so it must never itself make an API call (that could re-trigger
+  // the same 401-then-refresh path). The user-facing action is `signOut`.
+  const endLocalSession = useCallback(() => {
     clearRefreshTimer()
     accessTokenRef.current = null
     expiresAtRef.current = null
     setAccessTokenState(null)
   }, [clearRefreshTimer])
+
+  // User-initiated sign-out: revokes the refresh token server-side first
+  // (best-effort — the session ends locally either way).
+  const signOut = useCallback(async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // Best-effort — proceed to clear local state regardless.
+    } finally {
+      endLocalSession()
+    }
+  }, [endLocalSession])
 
   // Single-flight: the bootstrap check, the proactive timer, and httpClient's
   // reactive 401 handler can all want a refresh around the same moment. They
@@ -122,9 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     configureAuth({
       getAccessToken: () => accessTokenRef.current,
       refresh: refreshSession,
-      logout,
+      logout: endLocalSession,
     })
-  }, [logout, refreshSession])
+  }, [endLocalSession, refreshSession])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -132,9 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: accessToken !== null,
       isInitializing,
       setSession,
-      logout,
+      signOut,
     }),
-    [accessToken, isInitializing, setSession, logout],
+    [accessToken, isInitializing, setSession, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

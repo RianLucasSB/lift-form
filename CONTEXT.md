@@ -23,3 +23,12 @@ The identifier a user submits to sign in — either their email or their usernam
 Named `login` end-to-end (backend DTO field and frontend payload field) to keep it distinct from "the login
 flow" or "the login page".
 _Avoid_: "identifier" (name is deliberately kept as `login`, matching the API contract 1:1)
+
+**Account**:
+The umbrella for a logged-in user's own identity/settings data — currently just username and email
+("profile information"), with billing/payment info planned as a future addition to the same area. Named
+end-to-end as `account`: the frontend feature folder (`src/features/account/`), the route (`/account`), and
+the header menu label all use "Account", not "Profile" — "profile information" describes *what the Account
+page shows today*, not a separate concept with its own name.
+_Avoid_: "Profile" as a standalone term/label (considered and rejected — would create a second name for the
+same thing the Account route/feature already covers)
