@@ -11,4 +11,7 @@ export const authApi = {
   refresh() {
     return apiRequest<AuthResponse>('/auth/refresh', { method: 'POST' })
   },
+  logout() {
+    return apiRequest<void>('/auth/logout', { method: 'POST', authenticated: true })
+  },
 }

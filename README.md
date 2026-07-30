@@ -65,6 +65,9 @@ Ships the public landing page, sign-up and sign-in forms (`react-hook-form` + `z
 APIs, a protected `/overview` area that a successful sign-up/sign-in redirects into, and the create-analysis flow:
 `/analysis/new` (MP4/500MB-validated file picker, direct-to-S3 upload with a progress bar) and `/analysis/:id`
 (polls `GET /analysis/{id}` every 3s until the result or a failure/timeout renders).
+APIs, and a protected app shell (`/overview`, `/account`) that a successful sign-up/sign-in redirects into, with a
+shared header (logo, initials-avatar account menu, sign-out) across every authenticated page; the upload flow comes
+next.
 
 - Deliberately a plain SPA rather than Next.js: the Spring API already owns auth and business logic, and the
   refresh token is an httpOnly `SameSite=Strict` cookie designed for a browser client hitting the API directly.
