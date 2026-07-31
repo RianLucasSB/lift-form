@@ -73,6 +73,26 @@ class ConfirmVideoUploadUseCaseImplTest {
     }
 
     @Test
+    @DisplayName("Should persist the analysis with UPLOADED status when input is valid")
+    void shouldPersistAnalysisWithUploadedStatusWhenInputIsValid() {
+        // Arrange
+        var input = createValidInput();
+        var videoAnalysis = createValidVideoAnalysis();
+
+        doReturn(Optional.of(videoAnalysis))
+            .when(videoAnalysisRepository).findById(input.videoAnalysisId());
+        doReturn(new VideoObjectMetadata(1024L, ALLOWED_CONTENT_TYPE))
+            .when(videoStorage).getObjectMetadata(videoAnalysis.getVideoS3Key());
+
+        // Act
+        useCase.execute(input);
+
+        // Assert
+        verify(videoAnalysisRepository).save(videoAnalysis);
+        assertThat(videoAnalysis.getStatus()).isEqualTo(VideoAnalysisStatus.UPLOADED);
+    }
+
+    @Test
     @DisplayName("Should throw EntityNotFoundException when analysis is not found")
     void shouldThrowEntityNotFoundExceptionWhenAnalysisIsNotFound() {
         // Arrange

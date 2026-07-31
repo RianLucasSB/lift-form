@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rianlucassb.liftform.AbstractIntegrationTest;
 import com.rianlucassb.liftform.core.domain.model.AnalysisResult;
 import com.rianlucassb.liftform.core.domain.model.VideoAnalysis;
+import com.rianlucassb.liftform.core.domain.model.enums.VideoAnalysisStatus;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoAnalysisRepository;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -121,6 +122,20 @@ class VideoAnalysisControllerIT extends AbstractIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("POST /analysis/videos/{id}/upload-complete persists the UPLOADED status")
+    void confirmVideoUpload_authenticatedUser_existingCreatedAnalysis_persistsUploadedStatus() throws Exception {
+        Long analysisId = createAnalysisAndUploadFakeVideo(new byte[1024], "video/mp4");
+
+        mockMvc.perform(post(CONFIRM_ANALYSIS_VIDEO_UPLOAD_URL.formatted(analysisId))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        VideoAnalysis persisted = videoAnalysisRepository.findById(analysisId).orElseThrow();
+        assertThat(persisted.getStatus()).isEqualTo(VideoAnalysisStatus.UPLOADED);
     }
 
     @Test
