@@ -28,4 +28,18 @@ public interface VideoStorage {
      * @throws VideoDownloadUrlGenerationException if the URL cannot be generated.
      */
     String generateDownloadUrl(String key, Duration expiration);
+
+    /**
+     * Retrieves size/content-type metadata for an already-uploaded object.
+     *
+     * @throws VideoStorageException if the metadata cannot be retrieved.
+     */
+    VideoObjectMetadata getObjectMetadata(String key);
+
+    /**
+     * Deletes an object, e.g. one that failed post-upload validation.
+     *
+     * @throws VideoStorageException if the object cannot be deleted.
+     */
+    void deleteObject(String key);
 }

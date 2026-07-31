@@ -20,6 +20,9 @@ and is the only service that talks to clients directly.
 
 - Issues presigned S3 upload URLs so videos go straight from the client to object storage (never through the API).
 - Tracks the lifecycle of a video analysis (`CREATED → UPLOADED → PROCESSING → COMPLETED`, or `FAILED`/`EXPIRED`).
+- Validates the uploaded file (size/content-type) via an S3 `HeadObject` before confirming the upload, since a
+  presigned `PUT` can't enforce those at the S3 layer itself — see
+  `docs/adr/0003-post-upload-headobject-validation-not-presigned-post.md`.
 - Publishes a `VideoAnalysisUploaded` event to RabbitMQ once a client confirms an upload, which is what kicks off
   processing on the worker side.
 - Also the other end of the pipeline: consumes the score analyzer worker's result event and both workers' error
@@ -59,6 +62,9 @@ back angle, tempo, lockout, range of motion, consistency), then publishes the re
 
 React 19 + TypeScript SPA built with Vite, styled with Tailwind CSS v4 + shadcn/ui, routed with React Router.
 Ships the public landing page, sign-up and sign-in forms (`react-hook-form` + `zod`) wired to the register/login
+APIs, a protected `/overview` area that a successful sign-up/sign-in redirects into, and the create-analysis flow:
+`/analysis/new` (MP4/500MB-validated file picker, direct-to-S3 upload with a progress bar) and `/analysis/:id`
+(polls `GET /analysis/{id}` every 3s until the result or a failure/timeout renders).
 APIs, and a protected app shell (`/overview`, `/account`) that a successful sign-up/sign-in redirects into, with a
 shared header (logo, initials-avatar account menu, sign-out) across every authenticated page; the upload flow comes
 next.
@@ -253,8 +259,8 @@ pnpm install
 pnpm run dev        # http://localhost:5173, proxies /api to localhost:8080
 ```
 
-Other commands: `pnpm run build` (type-check + production bundle), `pnpm run lint` (oxlint),
-`pnpm run preview` (serve the production build).
+Other commands: `pnpm run build` (type-check + production bundle), `pnpm run lint` (oxlint), `pnpm run test`
+(Vitest), `pnpm run preview` (serve the production build).
 
 ## Repository layout
 

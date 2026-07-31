@@ -16,6 +16,9 @@ object storage:
   events off RabbitMQ, turns them into a 0–1 form score and per-dimension feedback, and publishes the result (or a
   structured error) for the API to persist
 - `frontend` — React 19 + TypeScript SPA (Vite, Tailwind CSS v4, shadcn/ui, React Router). Landing page, sign-up and
+  sign-in forms wired to the register/login APIs, session bootstrap + proactive token refresh, a protected
+  `/overview` area logged-in users land in, and the create-analysis flow (`/analysis/new` + `/analysis/:id`) —
+  upload a squat video, watch it process, see the scored result
   sign-in forms wired to the register/login APIs, session bootstrap + proactive token refresh, and a protected app
   shell (`/overview`, `/account`) with a shared header (logo, account menu, sign-out) logged-in users land in; the
   upload flow comes next
@@ -62,6 +65,7 @@ pnpm install
 pnpm run dev        # Vite dev server on :5173; proxies /api → http://localhost:8080 (vite.config.ts)
 pnpm run build      # tsc -b + vite build
 pnpm run lint       # oxlint
+pnpm run test       # vitest run
 ```
 
 Frontend notes:
@@ -70,6 +74,16 @@ Frontend notes:
   skipping platform-native optional dependencies (the `@rolldown/*` / `@oxlint/*` binding packages that `vite
   build` and `oxlint` need). Use `pnpm`, not `npm`, for all installs/scripts in this directory; there's no
   `package-lock.json` anymore, only `pnpm-lock.yaml`.
+- **Testing is Vitest + Testing Library** (`vitest`, `@testing-library/react`, `jsdom` environment, config lives in
+  the `test` block of `vite.config.ts` — imported from `vitest/config`, not `vite`, so the `test` field
+  typechecks). No test files existed before the analysis feature; its hooks (`useCreateAnalysisFlow`,
+  `useAnalysisStatusPolling`) are the reference pattern for testing a hook in isolation — mock the feature's `api/`
+  module with `vi.mock`, drive it with `renderHook`/`act`, and for anything timer-based use `vi.useFakeTimers()` +
+  `vi.advanceTimersByTimeAsync(...)`. Vitest must stay on a version that supports Vite 8 (currently `^4.0.0`) — an
+  older `vitest` pulls in its own bundled Vite 7 types internally, which conflicts with this project's Vite 8
+  (rolldown-based) `Plugin` types and breaks `tsc -b` with a wall of `PluginContextMeta`-mismatch errors on
+  `vite.config.ts`; if that error resurfaces after a dependency bump, it means `vitest` and `vite` have drifted
+  apart again.
 - **Deliberately a Vite SPA, not Next.js** — the Spring API owns auth/business logic, and the refresh token is an
   httpOnly `SameSite=Strict` cookie (see `AuthController`), which requires the app and API to be same-origin: the
   Vite dev proxy handles this locally; production will use nginx serving the bundle + reverse-proxying `/api`
@@ -170,9 +184,15 @@ files, never edit an already-applied migration.
    `CREATED` state, and returns a presigned S3 upload URL (15 min expiry) built from a key of the form
    `videos/{exerciseType}/{userId}/{uuid}.mp4`.
 1. Client uploads the video directly to S3 using that URL.
-1. `POST /api/v1/analysis/videos/{id}/upload-complete` (`ConfirmVideoUploadUseCase`) — transitions the analysis to
-   `UPLOADED` and publishes a `ConfirmVideoUploadedEvent` (event type `"VideoAnalysisUploaded"`) to RabbitMQ via
-   `RabbitMQEventPublisher`.
+1. `POST /api/v1/analysis/videos/{id}/upload-complete` (`ConfirmVideoUploadUseCase`) — first, if the analysis is
+   still `CREATED`, `HeadObject`s the uploaded S3 key and validates it against `analysis.upload.max-size-bytes`
+   (default 500MB) and `analysis.upload.allowed-content-type` (default `video/mp4`); a presigned `PUT` can't
+   enforce either at the S3 layer itself, so this is the actual enforcement point (see
+   `docs/adr/0003-post-upload-headobject-validation-not-presigned-post.md`). A violation deletes the S3 object and
+   throws `FileTooLargeException`/`UnsupportedFileTypeException` (mapped to `413`/`415` in `GlobalExceptionHandler`)
+   without transitioning the analysis — it's left in `CREATED`, same as any other abandoned upload, so the client
+   restarts with `POST /analysis/create`. Otherwise, transitions the analysis to `UPLOADED` and publishes a
+   `ConfirmVideoUploadedEvent` (event type `"VideoAnalysisUploaded"`) to RabbitMQ via `RabbitMQEventPublisher`.
 1. The event lands in `video-analysis.exchange` (direct exchange, shared by all three pipeline segments below),
    routed by key `video-analysis.uploaded` into `video-analysis.queue`. All three services declare their own
    corner of this topology using a symmetric naming convention — `RabbitMQConfig.java` uses `EXTRACTION_*` /
@@ -313,6 +333,39 @@ under `src/features/<feature>/`.
   `Input`/`Label` primitives with `zodResolver`, rather than the `FormField`/`FormItem` wrapper other shadcn
   projects use. See `RegisterForm.tsx`/`LoginForm.tsx` for the pattern to follow for the next form.
 
+### Frontend: create-analysis flow (`src/features/analysis/`)
+
+- **Two routes, not one.** `/analysis/new` (`NewAnalysisPage` → `NewAnalysisForm`) owns file selection through
+  confirming the upload; on success it navigates to `/analysis/:id` (`AnalysisDetailPage`), which owns polling and
+  rendering the result/error. The upload itself (file selection, the S3 `PUT`, `POST .../upload-complete`) all
+  happens before that navigation — a `File` object can't survive a page reload regardless of URL structure, so
+  there's no benefit to splitting the upload step across the route boundary; only the polling/result phase, which
+  is resumable via `GET /analysis/{id}`, needs its own URL.
+- **`useCreateAnalysisFlow`** (`hooks/useCreateAnalysisFlow.ts`) drives `POST /analysis/create` → S3 `PUT` → `POST
+  .../upload-complete` as one sequence, exposing `stage`/`uploadProgress`/`error` plus `start`/`retry`. Retry
+  behavior is stage-dependent, tracked via refs rather than re-derived from the error: a `create` or S3-`PUT`
+  failure retries the whole flow (a fresh `analysisId`); a generic confirm-upload failure retries just that call
+  against the same `analysisId` (the file is already in S3); a `413`/`415` from confirm-upload (see the backend
+  validation above) retries the whole flow instead, since the same file will just fail the same way again.
+- **`useAnalysisStatusPolling`** (`hooks/useAnalysisStatusPolling.ts`) polls `GET /analysis/{id}` every 3s,
+  collapsing `CREATED`/`UPLOADED`/`PROCESSING` into one `'processing'` status (see the "Processing" glossary entry
+  in `CONTEXT.md`) until `COMPLETED`/`FAILED`, or a `'timedOut'` status after 5 minutes — polling stops (interval
+  cleared) once any of those terminal-ish states is reached; `checkNow()` (used by a "check again" action after a
+  timeout) bumps an internal generation counter to restart the effect.
+- **`api/uploadToS3.ts`** deliberately bypasses `httpClient`/`apiRequest` for the S3 `PUT` — it's an unauthenticated,
+  non-JSON, cross-origin (to S3/MinIO, not the API) request, none of which fits `apiRequest`'s assumptions
+  (`credentials: 'include'`, always-JSON body, `Authorization` header). It uses `XMLHttpRequest` rather than
+  `fetch`, since `fetch` has no upload-progress event and the progress bar needs one.
+- **Result rendering** (`components/AnalysisResultView.tsx`) shows `overallScore` + a `classification` badge, plus
+  one card per dimension in `feedback` (`depth`/`back`/`tempo`/`lockout`/`rom`/`consistency`, each
+  `{rating, detail}`) — `feedback.overall_label` is deliberately never rendered, see
+  `docs/adr/0004-result-view-shows-classification-not-overall-label.md`. A `FAILED` status renders one generic
+  "we couldn't analyze this video" message, not the raw `errors[]` strings from the API — those are pipeline
+  internals, not proofread user-facing copy.
+- **Client-side validation** (`schemas/uploadSchema.ts`) mirrors the backend's post-upload check (MP4 only, ≤500MB)
+  so the form rejects an obviously-bad file immediately, before ever requesting a presigned URL — the server-side
+  `HeadObject` check (above) is still the actual enforcement, since client-side checks are trivially bypassable.
+
 ## Testing notes
 
 - Unit tests for use cases (`core/usecases/**/*ImplTest.java`) instantiate the `*Impl` directly with mocked gateways
@@ -321,6 +374,10 @@ under `src/features/<feature>/`.
 - Integration tests (`*IT.java`) extend `AbstractIntegrationTest`, which boots shared static Testcontainers
   (Postgres, LocalStack S3, RabbitMQ) once for the whole JVM and wires their connection info in via
   `@DynamicPropertySource`. This means integration tests require Docker to be available locally.
+- Frontend tests (Vitest + Testing Library, see the frontend notes above) cover feature hooks in isolation — the
+  API layer mocked via `vi.mock`, driven through `renderHook`/`act`. No component-level tests yet; the hooks hold
+  the actual branching logic (retry semantics, status collapsing/timeout), while the components that consume them
+  are comparatively thin render logic.
 - Both Python workers have a `tests/test_listener.py` (pytest) covering the pure payload-building/decision logic
   (event and error-payload shaping, the "treat as failure" guards) with I/O (S3, the predictor, pika) mocked out —
   not the CV pipeline internals or the AMQP wire itself, which stay covered by manual end-to-end verification. Each

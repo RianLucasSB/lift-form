@@ -2,7 +2,10 @@ package com.rianlucassb.liftform.infraestructure.adapter.transaction.videoanalys
 
 import com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload.ConfirmVideoUploadUseCase;
 import com.rianlucassb.liftform.core.usecases.analysis.confirmvideoupload.ConfirmVideoUploadUseCaseInput;
+import jakarta.transaction.Transactional;
+import org.springframework.context.annotation.Primary;
 
+@Primary
 public class TransactionalConfirmVideoUploadUsecase implements ConfirmVideoUploadUseCase {
 
     private final ConfirmVideoUploadUseCase confirmVideoUploadUseCase;
@@ -12,6 +15,7 @@ public class TransactionalConfirmVideoUploadUsecase implements ConfirmVideoUploa
     }
 
     @Override
+    @Transactional
     public void execute(ConfirmVideoUploadUseCaseInput input) {
         this.confirmVideoUploadUseCase.execute(input);
     }

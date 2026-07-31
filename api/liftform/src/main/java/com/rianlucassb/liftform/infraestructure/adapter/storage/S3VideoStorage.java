@@ -1,10 +1,14 @@
 package com.rianlucassb.liftform.infraestructure.adapter.storage;
 
+import com.rianlucassb.liftform.core.gateway.analysis.VideoObjectMetadata;
 import com.rianlucassb.liftform.core.gateway.analysis.VideoStorage;
 
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -69,5 +73,26 @@ public class S3VideoStorage implements VideoStorage {
 
         s3Client.putObject(request, RequestBody.fromBytes(content));
         return key;
+    }
+
+    @Override
+    public VideoObjectMetadata getObjectMetadata(String key) {
+        HeadObjectRequest request = HeadObjectRequest.builder()
+            .bucket(bucket)
+            .key(key)
+            .build();
+
+        HeadObjectResponse response = s3Client.headObject(request);
+        return new VideoObjectMetadata(response.contentLength(), response.contentType());
+    }
+
+    @Override
+    public void deleteObject(String key) {
+        DeleteObjectRequest request = DeleteObjectRequest.builder()
+            .bucket(bucket)
+            .key(key)
+            .build();
+
+        s3Client.deleteObject(request);
     }
 }

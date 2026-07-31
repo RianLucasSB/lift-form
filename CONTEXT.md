@@ -24,6 +24,22 @@ Named `login` end-to-end (backend DTO field and frontend payload field) to keep 
 flow" or "the login page".
 _Avoid_: "identifier" (name is deliberately kept as `login`, matching the API contract 1:1)
 
+**Processing** (frontend label):
+The single label the frontend shows while a `VideoAnalysis` is anywhere between upload and a terminal
+state. Deliberately collapses three distinct backend statuses (`CREATED`, `UPLOADED`, `PROCESSING`) into one
+UI-facing word, since the distinction between them isn't meaningful to someone watching a spinner.
+_Avoid_: using "Processing" to mean specifically the `PROCESSING` status — in frontend code/copy it always
+means the collapsed range, not the single enum value.
+
+**Classification**:
+The `GOOD`/`FAIR`/`POOR` quality verdict for a completed analysis, computed on the backend from
+`overallScore` via `Classification.fromScore(...)` — the one source of truth for "what counts as a good
+score." This is the only quality label the frontend renders as the headline result.
+_Avoid_: confusing this with `feedback.overall_label` — a separate, finer-grained
+(`excellent`/`good`/`fair`/`poor`/`bad`) label computed by the Python scoring worker for its own internal
+use. The two use different thresholds on the same `overallScore` and are not interchangeable; see
+`docs/adr/0004-result-view-shows-classification-not-overall-label.md`.
+
 **Account**:
 The umbrella for a logged-in user's own identity/settings data — currently just username and email
 ("profile information"), with billing/payment info planned as a future addition to the same area. Named
